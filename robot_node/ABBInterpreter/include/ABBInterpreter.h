@@ -10,7 +10,7 @@ using namespace std;
 
 /** \class namespace
     \brief ABB server interpreter.
-    Collection of methods to format and parse messages between PC and server running in ABB controller.   
+    Collection of methods to format and parse messages between PC and server running in ABB controller.
 */
 namespace ABBInterpreter
 {
@@ -44,17 +44,18 @@ namespace ABBInterpreter
   string connectRRI(int idCode=0);
   string closeRRI(int idCode=0);
   // CSS
-  string actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz, 
+  string actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz,
                 int softDir, double stiffness, double stiffnessNonSoftDir, int allowMove, double ramp, int idCode=0);
   string deactCSS(double x, double y, double z, double q0, double qx, double qy, double qz, int idCode=0);
   // EGM
-  string actEGM(int idCode=0);
-  
+  string actEGM(bool mode, int timeout, int idCode=0);
+  string stopEGM(int idCode=0);
+
   string iosignal(int output_num, int signal, int idCode=0);
-  
+
   int parseCartesian(string msg, double *x, double *y, double *z,
       double *q0, double *qx, double *qy, double *qz);
-  int parseJoints(string msg, double *joint1, double *joint2, 
-      double *joint3, double *joint4, double *joint5, double *joint6);  
+  int parseJoints(string msg, double *joint1, double *joint2,
+      double *joint3, double *joint4, double *joint5, double *joint6);
 }
 #endif

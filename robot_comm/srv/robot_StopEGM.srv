@@ -1,0 +1,5 @@
+# Service to stop EGM
+
+---
+int64 ret
+string msg

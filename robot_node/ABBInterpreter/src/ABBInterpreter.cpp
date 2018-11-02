@@ -8,12 +8,12 @@ using namespace std;
 // begin helper section
 char buff[1024];
 string stringFromInstructionCode(int instructionCode, int idCode){
-  sprintf(buff,"%.2d %.3d #",instructionCode, idCode); 
+  sprintf(buff,"%.2d %.3d #",instructionCode, idCode);
   return string(buff);
 }
 
 string stringFromInstructionCodeNoEnding(int instructionCode, int idCode){
-  sprintf(buff,"%.2d %.3d ",instructionCode, idCode); 
+  sprintf(buff,"%.2d %.3d ",instructionCode, idCode);
   return string(buff);
 }
 
@@ -195,7 +195,7 @@ string ABBInterpreter::setWorkObject(double x, double y, double z, double q0, do
 
 /**
   * Formats message to set the speed of the ABB robot.
-  * The values specified for tcp and ori are modified by the percentage of override specified by the operator in the teach pendant. 
+  * The values specified for tcp and ori are modified by the percentage of override specified by the operator in the teach pendant.
   * @param tcp Linear speed of the TCP in mm/s (max recommended value ~ 500).
   * @param ori Reorientation speed of the TCP in deg/s (max recommended value ~ 150).
   * @param idCode User code identifying the message. Will be sent back with the acknowledgement.
@@ -243,7 +243,7 @@ string ABBInterpreter::addBuffer(double x, double y, double z, double q0, double
 {
   //appends single target to the buffer
   // move will execute at current speed (which you can change between addBuffer calls)
-  
+
   string msg = stringFromInstructionCodeNoEnding(30,idCode);
   sprintf(buff,"%+08.1lf %+08.1lf %+08.1lf %+08.5lf %+08.5lf %+08.5lf %+08.5lf ",x,y,z,q0,qx,qy,qz);  msg += buff ;
   return (msg+"#");
@@ -270,7 +270,7 @@ string ABBInterpreter::addJointPosBuffer(double q1, double q2, double q3, double
   sprintf(buff,"%+08.2lf %+08.2lf %+08.2lf %+08.2lf %+08.2lf %+08.2lf ",q1,q2,q3,q4,q5,q6);  msg += buff ;
   return (msg+"#");
 }
-        
+
 string ABBInterpreter::clearJointPosBuffer(int idCode)
 {
   return stringFromInstructionCode(38,idCode);
@@ -279,7 +279,7 @@ string ABBInterpreter::clearJointPosBuffer(int idCode)
 string ABBInterpreter::executeJointPosBuffer(int idCode)
 {
   return stringFromInstructionCode(40,idCode);
-}  
+}
 
 string ABBInterpreter::connectRRI(int idCode)
 {
@@ -311,26 +311,26 @@ string ABBInterpreter::closeRRI(int idCode)
   *                  point when it is pushed away from that point. It is a percentage of a configured
   *                  value where 0 gives no spring effect of going back to the reference point.
   * @param stiffnessNonSoftDir This argument sets the softness for all directions that are not defined as soft by the argument SoftDir.
-  * @param allowMove When this switch is used movement instructions will be allowed during the activated 
-  *                  soft mode. Note that using \AllowMove will internally increase the value of the 
+  * @param allowMove When this switch is used movement instructions will be allowed during the activated
+  *                  soft mode. Note that using \AllowMove will internally increase the value of the
   *                  stiffness parameter.
-  * @param ramp This argument defines how fast the softness is implemented, as a percentage of 
+  * @param ramp This argument defines how fast the softness is implemented, as a percentage of
   *             the value set by the system parameter Activation smoothness time. Can be set to
   *             between 1 and 500%.
   * @param idCode User code identifying the message. Will be sent back with the acknowledgement.
   * @return String to be sent to ABB server.
   */
-  
-string ABBInterpreter::actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz, 
+
+string ABBInterpreter::actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz,
                               int softDir, double stiffness, double stiffnessNonSoftDir, int allowMove, double ramp,
                               int idCode)
 {
   stringstream ss;
   ss << "60 " //instruction code;
      << idCode << " "
-     << setprecision(13) << refFrame << " " 
+     << setprecision(13) << refFrame << " "
      << refOrient_q0 << " " << refOrient_qx << " " << refOrient_qy << " " << refOrient_qz << " "
-     << softDir << " " << stiffness << " " << stiffnessNonSoftDir << " " << allowMove << " " 
+     << softDir << " " << stiffness << " " << stiffnessNonSoftDir << " " << allowMove << " "
      << ramp << " #";
 
   return ss.str();
@@ -349,7 +349,7 @@ string ABBInterpreter::actCSS(int refFrame, double refOrient_q0, double refOrien
   * @param idCode User code identifying the message. Will be sent back with the acknowledgement.
   * @return String to be sent to ABB server.
   */
-  
+
 string ABBInterpreter::deactCSS(double x, double y, double z, double q0, double qx, double qy, double qz, int idCode)
 {
   stringstream ss;
@@ -360,9 +360,24 @@ string ABBInterpreter::deactCSS(double x, double y, double z, double q0, double 
   return ss.str();
 }
 
-string ABBInterpreter::actEGM(int idCode)
+string ABBInterpreter::actEGM(bool mode, int timeout, int idCode)
 {
-  return stringFromInstructionCode(70,idCode);
+  stringstream ss;
+  ss << "70 " //instruction code;
+     << idCode << " "
+     << mode << " "
+     << timeout << " #";
+
+  return ss.str();
+}
+
+string ABBInterpreter::stopEGM(int idCode)
+{
+  stringstream ss;
+  ss << "71 " //instruction code;
+     << idCode << " #";
+
+  return ss.str();
 }
 
 // outputNum: 1, 2, 3, 4
@@ -399,7 +414,7 @@ string ABBInterpreter::closeConnection(int idCode)
   * @param qz Placer for the fourth component of the orientation quaternion of the ABB robot.
   * @return Whether the message was received correctly or not by the ABB robot.
   */
-int ABBInterpreter::parseCartesian(std::string msg, double *x, double *y, 
+int ABBInterpreter::parseCartesian(std::string msg, double *x, double *y,
     double *z,double *q0, double *qx, double *qy, double*qz)
 {
   int ok, idCode;
@@ -421,8 +436,8 @@ int ABBInterpreter::parseCartesian(std::string msg, double *x, double *y,
   * @param joint6 Placer for the joint 6 of the ABB robot.
   * @return Whether the message was received correctly or not by the ABB robot.
   */
-int ABBInterpreter::parseJoints(std::string msg,  double *joint1, 
-    double *joint2, double *joint3, double *joint4, 
+int ABBInterpreter::parseJoints(std::string msg,  double *joint1,
+    double *joint2, double *joint3, double *joint4,
     double *joint5, double *joint6)
 {
   int ok, idCode;

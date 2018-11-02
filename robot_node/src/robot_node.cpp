@@ -9,13 +9,16 @@
 //
 
 #include "robot_node.h"
+#include "RobotHelper.hpp"
+#include "EGMHelper.hpp"
+#include "egm.pb.h"
 
 
 /////////////////////////////////
 // BEGIN RobotController Class //
 /////////////////////////////////
 
-RobotController::RobotController(ros::NodeHandle *n) 
+RobotController::RobotController(ros::NodeHandle *n)
 {
   node = n;
 }
@@ -45,6 +48,7 @@ RobotController::~RobotController() {
   handle_robot_ActivateCSS.shutdown();
   handle_robot_DeactivateCSS.shutdown();
   handle_robot_ActivateEGM.shutdown();
+  handle_robot_StopEGM.shutdown();
   handle_robot_SetMotionSupervision.shutdown();
 
   // Shut down topics.
@@ -53,11 +57,11 @@ RobotController::~RobotController() {
   handle_robot_ForceLog.shutdown();
   handle_robot_RRIJointState.shutdown();
   handle_robot_RRICartState.shutdown();
-  
+
   handle_robot_IOSignal.shutdown();
-  
+
   char message[MAX_BUFFER];
-  
+
   //Close RRI connections
   if(RRIConnected) {
     strcpy(message, ABBInterpreter::closeRRI().c_str());
@@ -67,13 +71,13 @@ RobotController::~RobotController() {
   //Close connections
   strcpy(message, ABBInterpreter::closeConnection().c_str());
   send(robotMotionSocket, message, strlen(message), 0);
-  
+
   ros::Duration(1.0).sleep();
   close(robotMotionSocket);
   close(robotLoggerSocket);
 }
 
-// This method initializes the robot controller by connecting to the 
+// This method initializes the robot controller by connecting to the
 // Robot Motion and Robot Logger servers, setting up internal variables
 // and setting the default robot configuration
 bool RobotController::init(std::string id)
@@ -90,20 +94,20 @@ bool RobotController::init(std::string id)
   ROS_INFO("ROBOT_CONTROLLER: Connecting to the ABB motion server...");
   robotname_sl = "/robot" + id;
   robotname = "robot" + id;
-  
+
   node->getParam(robotname_sl + "/robotIp",robotIp);
   node->getParam(robotname_sl + "/robotMotionPort",robotMotionPort);
   bool useRRI;
   node->param<bool>(robotname_sl + "/useRRI", useRRI, false);
   bool useLogger;
   node->param<bool>(robotname_sl + "/useLogger", useLogger, true);
-  
+
   connectMotionServer(robotIp.c_str(), robotMotionPort);
   if(!motionConnected)
   {
-    return false; 
+    return false;
   }
-  
+
   if (useLogger) {
     //Connect to Robot Logger server
     ROS_INFO("ROBOT_CONTROLLER: Connecting to the ABB logger server...");
@@ -114,10 +118,15 @@ bool RobotController::init(std::string id)
     ROS_INFO("ROBOT_CONTROLLER: Not able to connect to logger server. "
         "Continuing without robot feedback.");
     }
-  } 
+  }
 
 
-  
+  // Setup EGM mode variable
+  egm_running = false;
+
+  pthread_attr_init(&attrE);
+  pthread_attr_setdetachstate(&attrE, PTHREAD_CREATE_JOINABLE);
+
   // Setup our non-blocking variables
   non_blocking = false;
   do_nb_move = false;
@@ -155,7 +164,7 @@ bool RobotController::init(std::string id)
           "Continuing without RRI.");
     }
   }
-  
+
   return true;
 }
 
@@ -167,13 +176,13 @@ bool RobotController::defaultRobotConfiguration()
   double defWOx,defWOy,defWOz,defWOq0,defWOqx,defWOqy,defWOqz;
   double defTx,defTy,defTz,defTq0,defTqx,defTqy,defTqz;
   double defTmass, defTCGx, defTCGy, defTCGz;
-  double defTIx, defTIy, defTIz; 
+  double defTIx, defTIy, defTIz;
   double defMotionSupervision;
   double defAccelerationStart, defAccelerationEnd;
-  
+
   int zone;
   double speedTCP, speedORI;
- 
+
   //WorkObject
   node->getParam(robotname_sl + "/workobjectX",defWOx);
   node->getParam(robotname_sl + "/workobjectY",defWOy);
@@ -196,7 +205,7 @@ bool RobotController::defaultRobotConfiguration()
   node->getParam(robotname_sl + "/toolQZ",defTqz);
   if (!setTool(defTx,defTy,defTz,defTq0,defTqx,defTqy,defTqz))
       return false;
-  
+
   //Inertia
   node->getParam(robotname_sl + "/toolMass",defTmass);
   node->getParam(robotname_sl + "/toolCGX",defTCGx);
@@ -207,7 +216,7 @@ bool RobotController::defaultRobotConfiguration()
   node->getParam(robotname_sl + "/toolIZ",defTIz);
   if (!setInertia(defTmass,defTCGx,defTCGy,defTCGz,defTIx,defTIy,defTIz))
     return false;
-  
+
   //Zone
   node->getParam(robotname_sl + "/zone",zone);
   if (!setZone(zone))
@@ -222,7 +231,7 @@ bool RobotController::defaultRobotConfiguration()
   //Communication mode: default is blocking
   if (!setComm(BLOCKING))
     return false;
-  
+
   //MotionSupervision
   node->getParam(robotname_sl + "/supervision",defMotionSupervision);
   if(!setMotionSupervision(defMotionSupervision))
@@ -233,7 +242,7 @@ bool RobotController::defaultRobotConfiguration()
   node->getParam(robotname_sl + "/accelerationEnd",defAccelerationEnd);
   if(!setAcc(defAccelerationStart,defAccelerationEnd))
     return false;
- 
+
   // If everything is set, our default configuration has been set up correctly
   return true;
 }
@@ -288,14 +297,15 @@ void RobotController::advertiseServices()
   INIT_HANDLE(AddBuffer)
   INIT_HANDLE(ExecuteBuffer)
   INIT_HANDLE(ClearBuffer)
-      
+
   // CSS
   INIT_HANDLE(ActivateCSS)
   INIT_HANDLE(DeactivateCSS)
-  
+
   // EGM
   INIT_HANDLE(ActivateEGM)
-  
+  INIT_HANDLE(StopEGM)
+
   // IOSignal
   INIT_HANDLE(IOSignal)
 }
@@ -339,7 +349,7 @@ bool RUN_AND_RETURN_RESULT(const bool result, int64_t& ret, string& msg, const s
   char message[MAX_BUFFER]; \
   char reply[MAX_BUFFER]; \
   int randNumber = (int)(ID_CODE_MAX*(double)rand()/(double)(RAND_MAX));
-  
+
 //////////////////////////////////////////////////////////////////////////////
 // Service Callbacks
 //////////////////////////////////////////////////////////////////////////////
@@ -351,17 +361,25 @@ SERVICE_CALLBACK_DEF(Approach)
 
 SERVICE_CALLBACK_DEF(Ping)
 {
-  return RUN_AND_RETURN_RESULT(ping(), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to ping the robot.");
+  return RUN_AND_RETURN_RESULT(ping(),
+         res.ret, res.msg, "Not able to ping the robot.");
 }
 
 
 // Moves the robot to a given cartesian position using a joint move. If we are currently in
 // non-blocking mode, then we simply setup the move and let the non-blocking
-// thread handle the actual moving. If we are in blocking mode, we then 
+// thread handle the actual moving. If we are in blocking mode, we then
 // communicate with the robot to execute the move.
 SERVICE_CALLBACK_DEF(SetCartesianJ)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to set cartesian coordinates.";
+    res.msg += "of the robot.";
+    return false;
+  }
+
   // If we are in non-blocking mode
   if (non_blocking)
   {
@@ -393,7 +411,7 @@ SERVICE_CALLBACK_DEF(SetCartesianJ)
       // need to update our current target
       setArrayFromScalars(curTargP, req.x, req.y, req.z);
       setArrayFromScalars(curTargQ, req.q0, req.qx, req.qy, req.qz);
-      
+
       // Remember that we changed our target, again to maintain concurrency
       targetChanged = true;
     }
@@ -428,10 +446,18 @@ SERVICE_CALLBACK_DEF(SetCartesianJ)
 
 // Moves the robot to a given cartesian position. If we are currently in
 // non-blocking mode, then we simply setup the move and let the non-blocking
-// thread handle the actual moving. If we are in blocking mode, we then 
+// thread handle the actual moving. If we are in blocking mode, we then
 // communicate with the robot to execute the move.
 SERVICE_CALLBACK_DEF(SetCartesian)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to set cartesian coordinates ";
+    res.msg += "of the robot.";
+    return false;
+  }
+
   // If we are in non-blocking mode
   if (non_blocking)
   {
@@ -463,7 +489,7 @@ SERVICE_CALLBACK_DEF(SetCartesian)
       // need to update our current target
       setArrayFromScalars(curTargP, req.x, req.y, req.z);
       setArrayFromScalars(curTargQ, req.q0, req.qx, req.qy, req.qz);
-      
+
       // Remember that we changed our target, again to maintain concurrency
       targetChanged = true;
     }
@@ -483,7 +509,7 @@ SERVICE_CALLBACK_DEF(SetCartesian)
     // If we are in blocking mode, simply execute the cartesian move
     if (!setCartesian(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz))
     {
-      //res.ret = 0;  
+      //res.ret = 0;
       res.ret = errorId;
       res.msg = "ROBOT_CONTROLLER: Not able to set cartesian coordinates ";
       res.msg += "of the robot.";
@@ -501,17 +527,33 @@ SERVICE_CALLBACK_DEF(SetCartesian)
 // Queries the cartesian position of the robot
 SERVICE_CALLBACK_DEF(GetCartesian)
 {
-  return RUN_AND_RETURN_RESULT(getCartesian(res.x, res.y, res.z, res.q0, res.qx, res.qy, res.qz), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to get cartesian coordinates of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get cartesian coordinates ";
+    res.msg += "of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(getCartesian(res.x, res.y, res.z, res.q0, res.qx, res.qy, res.qz),
+         res.ret, res.msg, "Not able to get cartesian coordinates of the robot.");
 }
 
 
 // Moves the robot to a given joint position. If we are currently in
 // non-blocking mode, then we simply setup the move and let the non-blocking
-// thread handle the actual moving. If we are in blocking mode, we then 
+// thread handle the actual moving. If we are in blocking mode, we then
 // communicate with the robot to execute the move.
 SERVICE_CALLBACK_DEF(SetJoints)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to set joint coordinates ";
+    res.msg += "of the robot.";
+    return false;
+  }
+
   // If we are in non-blocking mode
   if (non_blocking)
   {
@@ -521,15 +563,15 @@ SERVICE_CALLBACK_DEF(SetJoints)
     pthread_mutex_lock(&nonBlockMutex);
     if (!do_nb_move)
     {
-      // If we are not currently doing a move, we are now 
+      // If we are not currently doing a move, we are now
       // going to start a joint move
       cart_move = false;
-      
+
       // Our new target is just the goal specified by the user
       setArrayFromScalars(curTargJ, req.j1, req.j2, req.j3, req.j4, req.j5, req.j6);
 
       // Our previous goal is simply the current position
-      getJoints(curGoalJ[0], curGoalJ[1], curGoalJ[2], 
+      getJoints(curGoalJ[0], curGoalJ[1], curGoalJ[2],
           curGoalJ[3], curGoalJ[4], curGoalJ[5]);
 
       // Now that we have set everything up, execute the move
@@ -547,7 +589,7 @@ SERVICE_CALLBACK_DEF(SetJoints)
     }
     else
     {
-      // If we are in the middle of a non-blocking cartesian move, we 
+      // If we are in the middle of a non-blocking cartesian move, we
       // cannot execute a joint move
       res.ret = 0;
       res.msg = "ROBOT_CONTROLLER: Can't do a joint move while doing a ";
@@ -563,7 +605,7 @@ SERVICE_CALLBACK_DEF(SetJoints)
     {
       //res.ret = 0;
       res.ret = errorId;
-      res.msg = "ROBOT_CONTROLLER: Not able to set cartesian coordinates ";
+      res.msg = "ROBOT_CONTROLLER: Not able to set joint coordinates ";
       res.msg += "of the robot.";
       return true;
     }
@@ -577,8 +619,16 @@ SERVICE_CALLBACK_DEF(SetJoints)
 // Query the robot for the current position of its joints
 SERVICE_CALLBACK_DEF(GetJoints)
 {
-  return RUN_AND_RETURN_RESULT(getJoints(res.j1, res.j2, res.j3, res.j4, res.j5, res.j6), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to get Joint coordinates of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get joint coordinates ";
+    res.msg += "of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(getJoints(res.j1, res.j2, res.j3, res.j4, res.j5, res.j6),
+         res.ret, res.msg, "Not able to get Joint coordinates of the robot.");
 }
 
 
@@ -586,8 +636,15 @@ SERVICE_CALLBACK_DEF(GetJoints)
 // cartesian position
 SERVICE_CALLBACK_DEF(GetIK)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get inverse kinematics.";
+    return false;
+  }
+
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::getIK(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz, 
+  strcpy(message, ABBInterpreter::getIK(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz,
         randNumber).c_str());
 
   if (sendAndReceive(message, strlen(message), reply, randNumber))
@@ -610,16 +667,23 @@ SERVICE_CALLBACK_DEF(GetIK)
 // joint angles
 SERVICE_CALLBACK_DEF(GetFK)
 {
-char message[MAX_BUFFER];
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get forward kinematics.";
+    return false;
+  }
+
+  char message[MAX_BUFFER];
   char reply[MAX_BUFFER];
   int randNumber = (int)(ID_CODE_MAX*(double)rand()/(double)(RAND_MAX));
 
-  strcpy(message, ABBInterpreter::getFK(req.j1, req.j2, req.j3, 
+  strcpy(message, ABBInterpreter::getFK(req.j1, req.j2, req.j3,
         req.j4, req.j5, req.j6, randNumber).c_str());
 
   if (sendAndReceive(message, strlen(message), reply, randNumber))
   {
-    ABBInterpreter::parseCartesian(reply, &res.x, &res.y, &res.z, 
+    ABBInterpreter::parseCartesian(reply, &res.x, &res.y, &res.z,
         &res.q0, &res.qx, &res.qy, &res.qz);
     res.ret = 1;
     res.msg = "ROBOT_CONTROLLER: OK.";
@@ -639,6 +703,13 @@ char message[MAX_BUFFER];
 // If the robot is in non-blocking mode, stop the robot
 SERVICE_CALLBACK_DEF(Stop)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to send Stop command.";
+    return false;
+  }
+
   // If we are currently blocking, there's nothing to stop
   if(!non_blocking)
   {
@@ -662,28 +733,54 @@ SERVICE_CALLBACK_DEF(Stop)
 // Set the tool frame of the robot
 SERVICE_CALLBACK_DEF(SetTool)
 {
-  return RUN_AND_RETURN_RESULT(setTool(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to change the tool of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the tool of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(setTool(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz),
+         res.ret, res.msg, "Not able to change the tool of the robot.");
 }
 
 // Set the inertia of the tool of the robot
 SERVICE_CALLBACK_DEF(SetInertia)
 {
-  return RUN_AND_RETURN_RESULT(setInertia(req.m, req.cgx, req.cgy, req.cgz, req.ix, req.iy, req.iz), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to change the inertia of the tool of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get change the inertia of the tool of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(setInertia(req.m, req.cgx, req.cgy, req.cgz, req.ix, req.iy, req.iz),
+         res.ret, res.msg, "Not able to change the inertia of the tool of the robot.");
 }
 
 // Set the work object of the robot
 SERVICE_CALLBACK_DEF(SetWorkObject)
 {
-  
-  return RUN_AND_RETURN_RESULT(setWorkObject(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz), 
-         res.ret, res.msg, "ROBOT_CONTROLLER: Not able to change the work of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the work of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(setWorkObject(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz),
+         res.ret, res.msg, "Not able to change the work of the robot.");
 }
 
 // Set the communication mode of our robot
 SERVICE_CALLBACK_DEF(SetComm)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the communication mode.";
+    return false;
+  }
 
   if (!setComm(req.mode))
   {
@@ -708,6 +805,12 @@ SERVICE_CALLBACK_DEF(SetComm)
 // Set the motion supervision of our robot
 SERVICE_CALLBACK_DEF(SetMotionSupervision)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to send SetMotionSupervision command.";
+    return false;
+  }
 
   if (!setMotionSupervision(req.supervision))
   {
@@ -727,11 +830,18 @@ SERVICE_CALLBACK_DEF(SetMotionSupervision)
 }
 
 
-// Set the speed of our robot. Note that if we are in non-blocking mode, we 
+// Set the speed of our robot. Note that if we are in non-blocking mode, we
 // call a separate method which sets step sizes in addition to speed.
 // Otherwise, we just call our generic setSpeed method.
 SERVICE_CALLBACK_DEF(SetSpeed)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the speed of the robot.";
+    return false;
+  }
+
   if (non_blocking)
   {
     if (!setNonBlockSpeed(req.tcp, req.ori))
@@ -754,18 +864,32 @@ SERVICE_CALLBACK_DEF(SetSpeed)
   return true;
 }
 
-// Set the speed of our robot. Note that if we are in non-blocking mode, we 
+// Set the speed of our robot. Note that if we are in non-blocking mode, we
 // call a separate method which sets step sizes in addition to speed.
 // Otherwise, we just call our generic setSpeed method.
 SERVICE_CALLBACK_DEF(SetAcc)
 {
-  return RUN_AND_RETURN_RESULT(setAcc(req.acc, req.deacc), res.ret, res.msg, "ROBOT_CONTROLLER: Not able to change the acceleration limit of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the acceleration limit of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(setAcc(req.acc, req.deacc), res.ret, res.msg, "Not able to change the acceleration limit of the robot.");
 }
 
 
-// Get the current state of the robot. 
+// Get the current state of the robot.
 SERVICE_CALLBACK_DEF(GetState)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to get state of the robot.";
+    return false;
+  }
+
   setScalarsFromArray(res.tcp,  res.ori, curSpd);
   res.zone = curZone;
   setScalarsFromArray(res.toolx,  res.tooly,  res.toolz, curToolP);
@@ -780,15 +904,29 @@ SERVICE_CALLBACK_DEF(GetState)
   return true;
 }
 
-// Set the zone of the robot. This is the distance before the end of a motion 
+// Set the zone of the robot. This is the distance before the end of a motion
 // that the server will respond. This enables smooth motions.
 SERVICE_CALLBACK_DEF(SetZone)
 {
-  return RUN_AND_RETURN_RESULT(setZone(req.mode), res.ret, res.msg, "ROBOT_CONTROLLER: Not able to change the zone of the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the zone of the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(setZone(req.mode), res.ret, res.msg, "Not able to change the zone of the robot.");
 }
 
 SERVICE_CALLBACK_DEF(SetTrackDist)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to change the tracking distance of the robot.";
+    return false;
+  }
+
   if (!non_blocking)
   {
     res.ret = 0;
@@ -812,19 +950,26 @@ SERVICE_CALLBACK_DEF(SetTrackDist)
 
 SERVICE_CALLBACK_DEF(SetDefaults)
 {
-  return RUN_AND_RETURN_RESULT(defaultRobotConfiguration(), res.ret, res.msg, "ROBOT_CONTROLLER: Not able to set default configuration.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to set default configuration.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(defaultRobotConfiguration(), res.ret, res.msg, "Not able to set default configuration.");
 }
 
 
 bool RobotController::setTrackDist(double pos_dist, double ang_dist)
 {
   pthread_mutex_lock(&nonBlockMutex);
-  
+
   // We set the tracking distance and adapt the speed of the robot
   // in order to avoid jerkiness.
   double desiredSpeedTCP;
   double desiredSpeedORI;
-  
+
   //TRANSLATION
   //There is a minimum and maximum tracking distance
   if(pos_dist < MINIMUM_TRACK_DIST_TRANS)
@@ -834,7 +979,7 @@ bool RobotController::setTrackDist(double pos_dist, double ang_dist)
   curDist[0] = pos_dist;
   curCartStep = curDist[0]/2.0;
   desiredSpeedTCP = 3.0*pos_dist*SAFETY_FACTOR;
-  
+
   //ROTATION
   //There is a minimum and maximum tracking distance
   if(ang_dist < MINIMUM_TRACK_DIST_ORI)
@@ -844,11 +989,11 @@ bool RobotController::setTrackDist(double pos_dist, double ang_dist)
   curDist[1] = ang_dist * DEG2RAD;
   curOrientStep = curDist[1]/2.0;
   desiredSpeedORI = 3.0*ang_dist*SAFETY_FACTOR;
-  
+
   //JOINTS
   //There is a minimum and maximum tracking distance
   curDist[2] = ang_dist;
-  curJointStep = curDist[2]/2.0;   
+  curJointStep = curDist[2]/2.0;
 
   //Change speed in the ABB controller
   changing_nb_speed = true;
@@ -874,7 +1019,7 @@ bool RobotController::setNonBlockSpeed(double tcp, double ori)
 
   double desiredSpeedTCP;
   double desiredSpeedORI;
-  
+
   //TRANSLATION
   //There is a minimum speed
   if(tcp < MINIMUM_NB_SPEED_TCP)
@@ -885,7 +1030,7 @@ bool RobotController::setNonBlockSpeed(double tcp, double ori)
   else
     curDist[0] = INFINITY_TRACK_DIST_TRANS;
   curCartStep = curDist[0]/2.0;
- 
+
   //ROTATION
   if(ori < MINIMUM_NB_SPEED_ORI)
     ori = MINIMUM_NB_SPEED_ORI;
@@ -912,54 +1057,201 @@ bool RobotController::setNonBlockSpeed(double tcp, double ori)
 // TCP Pose buffer commands
 SERVICE_CALLBACK_DEF(AddBuffer)
 {
-  return RUN_AND_RETURN_RESULT(addBuffer(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz), res.ret, res.msg, "ROBOT_CONTROLLER: Not able to add TCP pose to buffer the robot.");
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to add TCP pose to buffer the robot.";
+    return false;
+  }
+
+  return RUN_AND_RETURN_RESULT(addBuffer(req.x, req.y, req.z, req.q0, req.qx, req.qy, req.qz), res.ret, res.msg, "Not able to add TCP pose to buffer the robot.");
 }
 
 SERVICE_CALLBACK_DEF(ExecuteBuffer)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to execute buffered TCP pose trajectory.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(executeBuffer(), res.ret, res.msg, "Not able to execute buffered TCP pose trajectory");
 }
 
 SERVICE_CALLBACK_DEF(ClearBuffer)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to clear buffered TCP pose trajectories.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(clearBuffer(), res.ret, res.msg, "Not able to clear buffered TCP pose trajectories");
 }
 
 // Joint position buffer commands
 SERVICE_CALLBACK_DEF(AddJointPosBuffer)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to add joint position buffer.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(addJointPosBuffer(req.j1, req.j2, req.j3, req.j4, req.j5, req.j6), res.ret, res.msg, "Not able to add joint position buffer");
-      
+
 }
 
 SERVICE_CALLBACK_DEF(ExecuteJointPosBuffer)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to add joint position buffer.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(executeJointPosBuffer(), res.ret, res.msg, "Not able to execute buffered joint trajectories ");
-      
+
 }
 SERVICE_CALLBACK_DEF(ClearJointPosBuffer)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to clear buffered joint trajectories.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(clearJointPosBuffer(), res.ret, res.msg, "Not able to clear buffered joint trajectories");
 }
 
 SERVICE_CALLBACK_DEF(ActivateCSS)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to activate CSS.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(actCSS(req), res.ret, res.msg, "Not able to activate CSS");
 }
 
 SERVICE_CALLBACK_DEF(DeactivateCSS)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is working. Not able to deactivate CSS.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(deactCSS(req.ToPose), res.ret, res.msg, "Not able to deactivate CSS");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Main Thread for EGM
+//////////////////////////////////////////////////////////////////////////////
+void *egmMain(void *args)
+{
+  pair<RobotController*, std::string> p = (pair<RobotController*, std::string>) args;
+  // Recover the pointer to the main node
+  RobotController* ABBrobot = p.first;
+  std::string egm_mode = p.second;
+
+  // TODO: change as parameters
+  limits x_limits = limits(0.1, 0.6);
+  limits y_limits = limits(-0.4, 0.4);
+  limits z_limits = limits(0.0, 0.5);
+  double hz = 250.0;
+
+  ROSHelper ros_helper = ROSHelper(ABBrobot->node);
+  RobotHelper robot_controller = RobotHelper(ABBrobot->node, 6510, x_limits, y_limits, z_limits);
+
+  ros::Rate rate(hz);
+
+  geometry_msgs::PoseStamped command_pose, sent_pose, measured_pose;
+  sensor_msgs::JointState joint_state;
+  abb::egm::EgmFeedBack feedback;
+
+  while (ros::ok())
+  {
+    ros::spinOnce();
+    command_pose = ros_helper.get_command_pose();
+    sent_pose = robot_controller.send_command(command_pose, egm_mode, hz);
+    ros_helper.publish_sent_pose(sent_pose);
+
+    try {
+      robot_controller.flush_robot_data();
+      robot_controller.get_measured_pose(measured_pose);
+      robot_controller.get_measured_js(joint_state);
+      ros_helper.publish_measured_pose(measured_pose);
+      ros_helper.publish_joint_state(joint_state);
+    }
+    catch (SocketException& e) {
+      ROS_INFO("ROBOT_CONTROLLER: EGM reset by RAPID server.");
+      break;
+    }
+
+    rate.sleep();
+  }
+
+  ROS_INFO("ROBOT_CONTROLLER: EGM controller has ended.");
+
+  pthread_exit((void*) 0);
 }
 
 SERVICE_CALLBACK_DEF(ActivateEGM)
 {
+  // If EGM is running, ignore the command
+  if (egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is already running.";
+    return false;
+  }
+
+  // If we are in non-blocking mode, stop movement
+  if (non_blocking && do_nb_move) stop_nb();
+
+  std::string egm_mode = (mode ? "velocity" : "position");
+
+  if (pthread_create(&egmThread, &attrE, egmMain, pair<RobotController*, std::string>(this, egm_mode)) != 0)
+  {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: Unable to create EGM thread.";
+    return false;
+  }
+
   return RUN_AND_RETURN_RESULT(actEGM(req), res.ret, res.msg, "Not able to activate EGM");
+}
+
+SERVICE_CALLBACK_DEF(StopEGM)
+{
+  // If EGM is NOT running, ignore the command
+  if (!egm_running) {
+    res.ret = 0;
+    res.msg = "ROBOT_CONTROLLER: EGM is not running.";
+    return false;
+  }
+
+  bool result = RUN_AND_RETURN_RESULT(actEGM(req), res.ret, res.msg, "Not able to stop EGM");
+
+  if(result) {
+    void *statusE;
+    pthread_join(egmThread, &statusE);
+    egm_running = false;
+  }
+
+  return result;
 }
 
 
 //////////////////////////////////////////////////////////////////////////////
-// Internal methods that let us execute certain robot functions without using 
+// Internal methods that let us execute certain robot functions without using
 // ROS service callbacks
 //////////////////////////////////////////////////////////////////////////////
 
@@ -968,7 +1260,7 @@ SERVICE_CALLBACK_DEF(ActivateEGM)
   if (sendAndReceive(message, strlen(message), reply, randNumber)) \
     return true; \
   else \
-    return false; 
+    return false;
 
 // Pings the robot
 bool RobotController::ping()
@@ -979,13 +1271,13 @@ bool RobotController::ping()
 }
 
 // Command the robot to move to a given cartesian position
-bool RobotController::setCartesian(double x, double y, double z, 
+bool RobotController::setCartesian(double x, double y, double z,
     double q0, double qx, double qy, double qz)
 {
 
   PREPARE_TO_TALK_TO_ROBOT
 
-  strcpy(message, ABBInterpreter::setCartesian(x, y, z, q0, qx, qy, qz, 
+  strcpy(message, ABBInterpreter::setCartesian(x, y, z, q0, qx, qy, qz,
         randNumber).c_str());
 
   if (sendAndReceive(message, strlen(message), reply, randNumber))
@@ -1001,12 +1293,12 @@ bool RobotController::setCartesian(double x, double y, double z,
 
 // Command the robot to move to a given cartesian position using a joint
 // move
-bool RobotController::setCartesianJ(double x, double y, double z, 
+bool RobotController::setCartesianJ(double x, double y, double z,
     double q0, double qx, double qy, double qz)
 {
   PREPARE_TO_TALK_TO_ROBOT
 
-  strcpy(message, ABBInterpreter::setCartesianJ(x, y, z, q0, qx, qy, qz, 
+  strcpy(message, ABBInterpreter::setCartesianJ(x, y, z, q0, qx, qy, qz,
         randNumber).c_str());
 
   if (sendAndReceive(message, strlen(message), reply, randNumber))
@@ -1022,7 +1314,7 @@ bool RobotController::setCartesianJ(double x, double y, double z,
 
 
 // Query the robot for the current position of the robot
-bool RobotController::getCartesian(double &x, double &y, double &z, 
+bool RobotController::getCartesian(double &x, double &y, double &z,
     double &q0, double &qx, double &qy, double &qz)
 {
   PREPARE_TO_TALK_TO_ROBOT
@@ -1034,7 +1326,7 @@ bool RobotController::getCartesian(double &x, double &y, double &z,
     ABBInterpreter::parseCartesian(reply, &x, &y, &z, &q0, &qx, &qy, &qz);
     return true;
   }
-  else 
+  else
     return false;
 }
 
@@ -1047,7 +1339,7 @@ bool RobotController::setJoints(double j1, double j2, double j3, double j4,
 
   PREPARE_TO_TALK_TO_ROBOT
 
-  strcpy(message, ABBInterpreter::setJoints(j1, j2, j3, j4, j5, j6, 
+  strcpy(message, ABBInterpreter::setJoints(j1, j2, j3, j4, j5, j6,
         randNumber).c_str());
 
   if (sendAndReceive(message, strlen(message), reply, randNumber))
@@ -1094,7 +1386,7 @@ bool RobotController::stop_nb()
   // to return until we're sure that the robot has stopped moving.
   do_nb_move = false;
 
-  // We wait for the non-blocking thread to set stopConfirm to 
+  // We wait for the non-blocking thread to set stopConfirm to
   // true after we set stopRequest to true
   stopConfirm = false;
   stopRequest = true;
@@ -1102,25 +1394,25 @@ bool RobotController::stop_nb()
   {
     stop_check.sleep();
   }
-  stopRequest = false; 
+  stopRequest = false;
 
   return true;
 }
 
 // Set the tool frame of the robot
-bool RobotController::setTool(double x, double y, double z, 
+bool RobotController::setTool(double x, double y, double z,
     double q0, double qx, double qy, double qz)
 {
   // Only take action if the required values are different than the actual ones
-  if(x!=curToolP[0] || y!=curToolP[1] || y!=curToolP[2] || 
+  if(x!=curToolP[0] || y!=curToolP[1] || y!=curToolP[2] ||
      q0!=curToolQ[0] || qx!=curToolQ[1] || qy!=curToolQ[2] || qz!=curToolQ[3])
     {
       // This is dangerous if we are currently executing a non-blocking move
       if (do_nb_move)
       return false;
-      
+
       PREPARE_TO_TALK_TO_ROBOT
-      strcpy(message, ABBInterpreter::setTool(x, y, z, q0, qx, qy, qz, 
+      strcpy(message, ABBInterpreter::setTool(x, y, z, q0, qx, qy, qz,
                                     randNumber).c_str());
 
       if(sendAndReceive(message, strlen(message), reply, randNumber))
@@ -1145,7 +1437,7 @@ bool RobotController::setTool(double x, double y, double z,
 }
 
 // Set the tool frame of the robot
-bool RobotController::setInertia(double m, double cgx, double cgy, 
+bool RobotController::setInertia(double m, double cgx, double cgy,
     double cgz, double ix, double iy, double iz)
 {
   // Only take action if the required values are different than the actual ones
@@ -1155,16 +1447,16 @@ bool RobotController::setInertia(double m, double cgx, double cgy,
       // This is dangerous if we are currently executing a non-blocking move
       if (do_nb_move)
       return false;
-      
+
       PREPARE_TO_TALK_TO_ROBOT
-      strcpy(message, ABBInterpreter::setInertia(m, cgx, cgy, cgz, ix, iy, iz, 
+      strcpy(message, ABBInterpreter::setInertia(m, cgx, cgy, cgz, ix, iy, iz,
                                     randNumber).c_str());
 
       if(sendAndReceive(message, strlen(message), reply, randNumber))
       {
         // If the command was successful, remember our new inertia
         curToolM = m;
-        
+
         setArrayFromScalars(curToolCG, cgx,cgy,cgz);
         setArrayFromScalars(curToolI, ix,iy,iz);
 
@@ -1185,19 +1477,19 @@ bool RobotController::setInertia(double m, double cgx, double cgy,
 }
 
 // Set the work object frame of the robot
-bool RobotController::setWorkObject(double x, double y, double z, 
+bool RobotController::setWorkObject(double x, double y, double z,
     double q0, double qx, double qy, double qz)
 {
   // Only take action if the required values are different than the actual ones
-  if(x!=curWorkP[0] || y!=curWorkP[1] || y!=curWorkP[2] || 
+  if(x!=curWorkP[0] || y!=curWorkP[1] || y!=curWorkP[2] ||
      q0!=curWorkQ[0] || qx!=curWorkQ[1] || qy!=curWorkQ[2] || qz!=curWorkQ[3])
     {
       // This is dangerous if we are in the middle of a non-blocking move
       if (do_nb_move)
       return false;
-      
+
   PREPARE_TO_TALK_TO_ROBOT
-      strcpy(message, ABBInterpreter::setWorkObject(x, y, z, q0, qx, qy, qz, 
+      strcpy(message, ABBInterpreter::setWorkObject(x, y, z, q0, qx, qy, qz,
                                         randNumber).c_str());
       if(sendAndReceive(message, strlen(message), reply, randNumber))
       {
@@ -1232,13 +1524,13 @@ bool RobotController::setSpeed(double tcp, double ori)
       return false;
 
       PREPARE_TO_TALK_TO_ROBOT
-      strcpy(message, ABBInterpreter::setSpeed(tcp, ori, 
+      strcpy(message, ABBInterpreter::setSpeed(tcp, ori,
                                      randNumber).c_str());
       if(sendAndReceive(message, strlen(message), reply, randNumber))
       {
         // If we successfully changed the speed, remember our new speed values
         setArrayFromScalars(curSpd, tcp,ori);
-        
+
         // We also save it to the parameter server
         node->setParam(robotname_sl + "/speedTCP",tcp);
         node->setParam(robotname_sl + "/speedORI",ori);
@@ -1254,7 +1546,7 @@ bool RobotController::setSpeed(double tcp, double ori)
 bool RobotController::setAcc(double acc, double deacc)
 {
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::setAcc(acc, deacc, 
+  strcpy(message, ABBInterpreter::setAcc(acc, deacc,
                                      randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
@@ -1269,20 +1561,20 @@ bool RobotController::setZone(int z)
       // This is dangerous if we are in the middle of a non-blocking move
       if (do_nb_move)
       return false;
-      
+
   PREPARE_TO_TALK_TO_ROBOT
-      
+
       // Make sure the specified zone number exists
       if (z < 0 || z > NUM_ZONES)
       {
         ROS_INFO("ROBOT_CONTROLLER: SetZone command not sent. Invalide zone mode.");
         return false;
       }
-      
-      strcpy(message, ABBInterpreter::setZone((z == ZONE_FINE), 
-                                    zone_data[z].p_tcp, zone_data[z].p_ori, zone_data[z].ori, 
+
+      strcpy(message, ABBInterpreter::setZone((z == ZONE_FINE),
+                                    zone_data[z].p_tcp, zone_data[z].p_ori, zone_data[z].ori,
                                     randNumber).c_str());
-      
+
       if(sendAndReceive(message, strlen(message), reply, randNumber))
       {
         // If we set the zone successfully, remember our new zone
@@ -1302,7 +1594,7 @@ bool RobotController::setComm(int mode)
 {
   if (mode == NON_BLOCKING)
   {
-    // If the user wants to set non-blocking mode, we 
+    // If the user wants to set non-blocking mode, we
     // simply set our state variables appropriately
     if (!non_blocking)
     {
@@ -1317,7 +1609,7 @@ bool RobotController::setComm(int mode)
   }
   else if (mode == BLOCKING)
   {
-    // If the user wants to set blocking mode, make sure we stop any 
+    // If the user wants to set blocking mode, make sure we stop any
     // non-blocking move, and then set our state variable appropriately.
     if (non_blocking)
     {
@@ -1339,16 +1631,16 @@ bool RobotController::setMotionSupervision(double sup)
   if(sup!=curSupervision)
     {
       PREPARE_TO_TALK_TO_ROBOT
-      
+
       // Make sure it is within bounds
       if (sup <= 0  || sup > 300)
       {
         ROS_INFO("ROBOT_CONTROLLER: SetMotionSupervision command not sent. Invalide value.");
         return false;
       }
-      
+
       strcpy(message, ABBInterpreter::setMotionSupervision(sup,randNumber).c_str());
-      
+
       if(sendAndReceive(message, strlen(message), reply, randNumber))
       {
         // If we set the motio supervision, remeber it
@@ -1364,7 +1656,7 @@ bool RobotController::setMotionSupervision(double sup)
 }
 
 
-// If we are in non-blocking mode, then we have a variable that keeps 
+// If we are in non-blocking mode, then we have a variable that keeps
 //  track of whether we are moving or not. If we are in blocking mode,
 //  reaching this function means the robot is not moving
 bool RobotController::is_moving()
@@ -1430,7 +1722,7 @@ bool RobotController::clearJointPosBuffer()
 bool RobotController::actCSS(robot_comm::robot_ActivateCSS::Request& req)
 {
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::actCSS(req.refFrame, req.refOrient_q0, req.refOrient_qx, req.refOrient_qy, req.refOrient_qz, 
+  strcpy(message, ABBInterpreter::actCSS(req.refFrame, req.refOrient_q0, req.refOrient_qx, req.refOrient_qy, req.refOrient_qz,
          req.softDir, req.stiffness, req.stiffnessNonSoftDir, req.allowMove, req.ramp, randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
@@ -1438,7 +1730,7 @@ bool RobotController::actCSS(robot_comm::robot_ActivateCSS::Request& req)
 bool RobotController::deactCSS(geometry_msgs::Pose pose)
 {
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::deactCSS(pose.position.x, pose.position.y, pose.position.z, 
+  strcpy(message, ABBInterpreter::deactCSS(pose.position.x, pose.position.y, pose.position.z,
                                            pose.orientation.w, pose.orientation.x, pose.orientation.y, pose.orientation.z, randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
@@ -1450,7 +1742,15 @@ bool RobotController::deactCSS(geometry_msgs::Pose pose)
 bool RobotController::actEGM(robot_comm::robot_ActivateEGM::Request& req)
 {
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::actEGM(randNumber).c_str());
+  strcpy(message, ABBInterpreter::actEGM(req.mode, req.timeout, randNumber).c_str());
+  SEND_MSG_TO_ROBOT_AND_END
+}
+
+// Stop EGM
+bool RobotController::stopEGM(robot_comm::robot_StopEGM::Request& req)
+{
+  PREPARE_TO_TALK_TO_ROBOT
+  strcpy(message, ABBInterpreter::stopEGM(randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
 
@@ -1464,7 +1764,7 @@ SERVICE_CALLBACK_DEF(IOSignal)
 bool RobotController::iosignal(int output_num, int signal)
 {
   PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::iosignal(output_num, signal, 
+  strcpy(message, ABBInterpreter::iosignal(output_num, signal,
                                      randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
@@ -1480,11 +1780,11 @@ bool RobotController::establishRRI(int port){
     ROS_INFO("ROBOT_CONTROLLER: RRI already connected.");
     return false;
   }
-  
+
   try {
     // Create an RRI UDP socket
     RRIsock = new UDPSocket(port);
-    
+
     PREPARE_TO_TALK_TO_ROBOT
     strcpy(message, ABBInterpreter::connectRRI(randNumber).c_str());
     if(sendAndReceive(message,strlen(message), reply, randNumber)){
@@ -1589,9 +1889,9 @@ bool RobotController::connectMotionServer(const char* ip, int port)
   return false;
 }
 
-// Helper function to send a command to the robot, 
+// Helper function to send a command to the robot,
 // wait for an answer and check for correctness.
-bool RobotController::sendAndReceive(char *message, int messageLength, 
+bool RobotController::sendAndReceive(char *message, int messageLength,
     char* reply, int idCode)
 {
   pthread_mutex_lock(&sendRecvMutex);
@@ -1612,9 +1912,9 @@ bool RobotController::sendAndReceive(char *message, int messageLength,
       int ok, rcvIdCode;
       sscanf(reply,"%*d %d %d", &rcvIdCode, &ok);
       errorId = ok;
- 
+
       if(idCode!=-1)
-      {  
+      {
         if ((ok == SERVER_OK) && (rcvIdCode == idCode))
         {
           pthread_mutex_unlock(&sendRecvMutex);
@@ -1646,10 +1946,10 @@ bool RobotController::sendAndReceive(char *message, int messageLength,
         }
         else if (ok == SERVER_COLLISION)
         {
-          ROS_WARN("ROBOT_CONTROLLER: Collision Detected.");      
+          ROS_WARN("ROBOT_CONTROLLER: Collision Detected.");
           pthread_mutex_unlock(&sendRecvMutex);
           return false;
-  
+
         }
         else if ((ok == SERVER_BAD_IK || ok == SERVER_BAD_FK) && (rcvIdCode == idCode))
         {
@@ -1739,7 +2039,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
     partialBuffer = buffer;
 
     // Each message starts with a '#' character. Read messages one at a time
-    while((partialBuffer = strchr(partialBuffer,'#'))!=NULL)            
+    while((partialBuffer = strchr(partialBuffer,'#'))!=NULL)
     {
       // The number after the start character is the type of message
       sscanf(partialBuffer,"# %d", &code);
@@ -1821,7 +2121,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
             }
             break;
           }
-          
+
         // Suction on off message
         case 3:
           {
@@ -1855,7 +2155,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
       pthread_mutex_lock(&cartUpdateMutex);
       setArrayFromScalars(curP, msgCartesian.x, msgCartesian.y, msgCartesian.z);
       setArrayFromScalars(curQ, msgCartesian.q0, msgCartesian.qx, msgCartesian.qy, msgCartesian.qz);
-      pthread_mutex_unlock(&cartUpdateMutex); 
+      pthread_mutex_unlock(&cartUpdateMutex);
     }
     if(jointsModif)
     {
@@ -1875,7 +2175,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
     {
       handle_robot_SuctionState.publish(msgSuction);
     }
-    
+
     //prepare joint state message
     if(jointsModif){
       sensor_msgs::JointState js;
@@ -1885,7 +2185,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
       js.position.push_back(msgJoints.j4*DEG2RAD);
       js.position.push_back(msgJoints.j5*DEG2RAD);
       js.position.push_back(msgJoints.j6*DEG2RAD);
-        
+
       string J_names[] = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
       js.name.assign(J_names, J_names + 6);
       js.header.stamp = ros::Time::now();
@@ -1911,9 +2211,9 @@ void RobotController::rriCallback(const ros::TimerEvent&)
   int recvMsgSize;
   string sourceAddress;             // Address of datagram source
   unsigned short sourcePort;        // Port of datagram source
-  
+
   // Read all information from the tcp/ip socket
-  
+
   try{
     if ((recvMsgSize = RRIsock->recvFrom(buffer, MAX_BUFFER-1, sourceAddress, sourcePort)) > 0)
     {
@@ -1922,22 +2222,22 @@ void RobotController::rriCallback(const ros::TimerEvent&)
       pos.header.stamp = ros::Time::now();
       sensor_msgs::JointState js;
       js.header.stamp = pos.header.stamp;
-      
+
       // Parse it
       buffer[recvMsgSize] = '\0';
       xmldoc.Clear();
       xmldoc.Parse( buffer );
-      TiXmlElement* element = xmldoc.FirstChildElement( "RobData" ); 
+      TiXmlElement* element = xmldoc.FirstChildElement( "RobData" );
       if (element){
-        
-        // For TCP position 
+
+        // For TCP position
         TiXmlElement* Pact = element->FirstChildElement("P_act");
         double P_act[6];  // X, Y, Z, Rx, Ry, Rz
         string P_element_names[] = {"X", "Y", "Z", "Rx", "Ry", "Rz"};
-        
+
         for (int i=0;i<NUM_JOINTS;i++)
           Pact->QueryDoubleAttribute( P_element_names[i].c_str(), &P_act[i]);
-        
+
         // publish it
         for (int i=0;i<NUM_JOINTS;i++){
           if (i<3)  pos.position.push_back(P_act[i]);
@@ -1945,18 +2245,18 @@ void RobotController::rriCallback(const ros::TimerEvent&)
           pos.name.push_back(P_element_names[i]);
         }
         handle_robot_RRICartState.publish(pos);
-          
+
         // For joints position
         TiXmlElement* Jact = element->FirstChildElement("J_act");
         double J_act[6];  // J1, J2, J3, J4, J5, J6
         string J_element_names[] = {"J1", "J2", "J3", "J4", "J5", "J6"};
         for (int i=0;i<NUM_JOINTS;i++)
           Jact->QueryDoubleAttribute( J_element_names[i].c_str(), &J_act[i]);
-          
+
         // publish it
         for (int i=0;i<NUM_JOINTS;i++)
           js.position.push_back(J_act[i]);
-          
+
         string J_names[] = {"joint1", "joint2", "joint3", "joint4", "joint5", "joint6"};
         js.name.assign(J_names, J_names + NUM_JOINTS);
         handle_robot_RRIJointState.publish(js);
@@ -1971,8 +2271,8 @@ void RobotController::rriCallback(const ros::TimerEvent&)
 //////////////////////////////////////////////////////////////////////////////
 // Main Thread for Logger
 //
-// This is the main function for our logger thread. We simply start a ROS 
-// timer event and get it to call our loggerCallback function at a 
+// This is the main function for our logger thread. We simply start a ROS
+// timer event and get it to call our loggerCallback function at a
 // specified interval. This exits when ROS shuts down.
 //////////////////////////////////////////////////////////////////////////////
 void *loggerMain(void *args)
@@ -1983,7 +2283,7 @@ void *loggerMain(void *args)
 
   // Create a timer to look at the log data
   ros::Timer loggerTimer;
-  loggerTimer = ABBrobot->node->createTimer(ros::Duration(0.003), 
+  loggerTimer = ABBrobot->node->createTimer(ros::Duration(0.003),
       &RobotController::logCallback, ABBrobot);
   // Now simply wait until the program is shut down
   ros::waitForShutdown();
@@ -1995,8 +2295,8 @@ void *loggerMain(void *args)
 //////////////////////////////////////////////////////////////////////////////
 // Main Thread for RRI
 //
-// This is the main function for our logger thread. We simply start a ROS 
-// timer event and get it to call our loggerCallback function at a 
+// This is the main function for our logger thread. We simply start a ROS
+// timer event and get it to call our loggerCallback function at a
 // specified interval. This exits when ROS shuts down.
 //////////////////////////////////////////////////////////////////////////////
 void *rriMain(void *args)
@@ -2007,7 +2307,7 @@ void *rriMain(void *args)
 
   // Create a timer to look at the log data
   ros::Timer rriTimer;
-  rriTimer = ABBrobot->node->createTimer(ros::Duration(0.001), 
+  rriTimer = ABBrobot->node->createTimer(ros::Duration(0.001),
       &RobotController::rriCallback, ABBrobot);
 
   // Now simply wait until the program is shut down
@@ -2023,7 +2323,7 @@ void *rriMain(void *args)
 //
 // This is the main function of the non-blocking thread. When we are in
 // non-blocking mode, it updates it's current target position, figures
-// out what step to take, and moves there. 
+// out what step to take, and moves there.
 //////////////////////////////////////////////////////////////////////////////
 void *nonBlockMain(void *args)
 {
@@ -2048,15 +2348,15 @@ void *nonBlockMain(void *args)
         pthread_mutex_lock (&nonBlockMutex);
         HomogTransf target(robot->curTargQ.getRotMat(), robot->curTargP);
         robot->targetChanged = false;
-        /*ROS_INFO("Target: %f, %f, %f", robot->curTargP[0], 
+        /*ROS_INFO("Target: %f, %f, %f", robot->curTargP[0],
             robot->curTargP[1], robot->curTargP[2]);*/
         pthread_mutex_unlock(&nonBlockMutex);
 
-        // Get the last goal position, and find the 
+        // Get the last goal position, and find the
         // difference between here and our target
         HomogTransf pos(robot->curGoalQ.getRotMat(), robot->curGoalP);
         HomogTransf diff = (pos.inv())*target;
-        
+
         // Get the orientation and translational change
         Vec diffV = diff.getTranslation();
         Quaternion diffQ = diff.getRotation().getQuaternion();
@@ -2066,7 +2366,7 @@ void *nonBlockMain(void *args)
         double transMag = diffV.norm();
         double rotMag = diffQ.getAngle();
 
-        // Compute the number of loops it will take us to reach our 
+        // Compute the number of loops it will take us to reach our
         // translation and orientation goals. Note that since our speed and
         // step size is variable, we make sure that nothing funny happens while
         pthread_mutex_lock(&nonBlockMutex);
@@ -2074,7 +2374,7 @@ void *nonBlockMain(void *args)
         double angSteps = rotMag / robot->curOrientStep;
         pthread_mutex_unlock(&nonBlockMutex);
 
-        // This will hold the distance to translate 
+        // This will hold the distance to translate
         // and rotate for this iteration
         double transDist = 0;
         double angDist = 0;
@@ -2082,12 +2382,12 @@ void *nonBlockMain(void *args)
         // Keep track of whether this is our last step
         bool reachedGoal = false;
 
-        // If we have more linear steps than angular steps left, make sure 
-        // we go the full distance for the linear step, but only a scaled 
+        // If we have more linear steps than angular steps left, make sure
+        // we go the full distance for the linear step, but only a scaled
         // distance for the angular step
         if (linSteps >= angSteps)
         {
-          // If we have more than a step left, make sure we only move 
+          // If we have more than a step left, make sure we only move
           // 1 step's worth in both rotation and translation
           if (linSteps > 1.0)
           {
@@ -2102,8 +2402,8 @@ void *nonBlockMain(void *args)
         }
         else
         {
-          // If there are more angular steps than linear steps remaining, 
-          // make sure we scale everything by the number of angular 
+          // If there are more angular steps than linear steps remaining,
+          // make sure we scale everything by the number of angular
           // steps left
           if (angSteps > 1.0)
           {
@@ -2134,7 +2434,7 @@ void *nonBlockMain(void *args)
           // rotation, and scale by the magnitude for the current step
           if (rotMag > 0)
           {
-            incRot = Quaternion("1 0 0 0") + 
+            incRot = Quaternion("1 0 0 0") +
               (diffQ - Quaternion("1 0 0 0")) * angDist / rotMag;
 
             // Make sure that we renormalize our quaternion
@@ -2143,13 +2443,13 @@ void *nonBlockMain(void *args)
         }
         else
         {
-          // If we have less than a step to go, the translation and rotation 
+          // If we have less than a step to go, the translation and rotation
           // is simply the changed we calculated above
           incTrans = diffV;
           incRot = diffQ;
         }
 
-        // Now form homogeneous matrices to calculate the resulting 
+        // Now form homogeneous matrices to calculate the resulting
         // position and orientation from this step
         HomogTransf incStep(incRot.getRotMat(), incTrans);
         HomogTransf newGoal = pos * incStep;
@@ -2189,7 +2489,7 @@ void *nonBlockMain(void *args)
           }
         }
 
-        // If we have reached our goal, and the target hasn't been changed 
+        // If we have reached our goal, and the target hasn't been changed
         // while we were doing the last move, we're done.
         pthread_mutex_lock (&nonBlockMutex);
         if (reachedGoal && !robot->targetChanged)
@@ -2206,9 +2506,9 @@ void *nonBlockMain(void *args)
         double maxNumSteps = 0.0;
         double jointStepSize;
 
-        // Compute the difference between the current goal and joint target 
-        // for each joint. Note that this is the only time we access the 
-        // current joint target, as it's possible that it could change 
+        // Compute the difference between the current goal and joint target
+        // for each joint. Note that this is the only time we access the
+        // current joint target, as it's possible that it could change
         // while we are executing this iteration.
         pthread_mutex_lock (&nonBlockMutex);
         for (i=0; i<NUM_JOINTS; i++)
@@ -2228,8 +2528,8 @@ void *nonBlockMain(void *args)
         }
         pthread_mutex_unlock(&nonBlockMutex);
 
-        // If we have more than one iteration to go, scale the total 
-        // difference by the magnitude of the current step and add it 
+        // If we have more than one iteration to go, scale the total
+        // difference by the magnitude of the current step and add it
         // to the current position to get our new goal
         if (maxNumSteps > 1.0)
         {
@@ -2260,7 +2560,7 @@ void *nonBlockMain(void *args)
           pthread_mutex_unlock(&nonBlockMutex);
         }
 
-        // If we have reached our goal, and the target hasn't been changed 
+        // If we have reached our goal, and the target hasn't been changed
         // while we were doing the last move, we're done.
         pthread_mutex_lock (&nonBlockMutex);
         if (reachedJ && !robot->targetChanged)
@@ -2299,7 +2599,7 @@ int main(int argc, char** argv)
   RobotController ABBrobot(&node);
 
   // Initialize the Robot Node
-  
+
   if (argc == 2){
     if (!ABBrobot.init(argv[1]))
       exit(-1);
@@ -2307,8 +2607,8 @@ int main(int argc, char** argv)
   else{
     if (!ABBrobot.init())
       exit(-1);
-  } 
-  
+  }
+
 
   // Initialize the mutex's we will be using in our threads
   pthread_mutex_init(&nonBlockMutex, NULL);
@@ -2327,39 +2627,39 @@ int main(int argc, char** argv)
   pthread_attr_setdetachstate(&attrL, PTHREAD_CREATE_JOINABLE);
 
 
-  if (pthread_create(&loggerThread, &attrL, 
+  if (pthread_create(&loggerThread, &attrL,
         loggerMain, (void*)&ABBrobot) != 0)
   {
     ROS_INFO("ROBOT_CONTROLLER: Unable to create logger thread. "
         "Error number: %d.",errno);
   }
-  
-  
-  
+
+
+
   bool useRRI;
   node.param<bool>(ABBrobot.robotname_sl + "/useRRI", useRRI, false);
-  
+
   // Create a dedicated thread for rri broadcasts
   pthread_t rriThread;
   pthread_attr_t attrR;
   pthread_attr_init(&attrR);
   pthread_attr_setdetachstate(&attrR, PTHREAD_CREATE_JOINABLE);
   if (useRRI){
-    if (pthread_create(&rriThread, &attrR, 
+    if (pthread_create(&rriThread, &attrR,
         rriMain, (void*)&ABBrobot) != 0)
     {
     ROS_INFO("ROBOT_CONTROLLER: Unable to create rri thread. "
         "Error number: %d.",errno);
     }
   }
-  
+
   // Create a dedicated thread for non-blocking moves
   pthread_t nonBlockThread;
   pthread_attr_t attrB;
   pthread_attr_init(&attrB);
   pthread_attr_setdetachstate(&attrB, PTHREAD_CREATE_JOINABLE);
 
-  if(pthread_create(&nonBlockThread,  &attrB, 
+  if(pthread_create(&nonBlockThread,  &attrB,
         nonBlockMain, (void*)&ABBrobot) != 0)
   {
     ROS_INFO("ROBOT_CONTROLLER: Unable to create non-blocking thread."
@@ -2376,7 +2676,7 @@ int main(int argc, char** argv)
 
   //Main ROS loop
   ROS_INFO("ROBOT_CONTROLLER: Running node /robot_controller...");
-  // Multithreaded spinner so that callbacks 
+  // Multithreaded spinner so that callbacks
   // can be handled on separate threads.
   ros::MultiThreadedSpinner spinner(4); // We have 4 total threads
   spinner.spin();

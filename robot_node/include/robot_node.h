@@ -7,7 +7,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <matvec/matVec.h>
 #include <math.h>
 
@@ -96,12 +96,12 @@ class RobotController
   SERVICE_CALLBACK_DEC(IsMoving)
   SERVICE_CALLBACK_DEC(Approach)
   SERVICE_CALLBACK_DEC(SetMotionSupervision)
-  
+
   // Buffer (joints) Comm declerations:
   SERVICE_CALLBACK_DEC(AddJointPosBuffer)
   SERVICE_CALLBACK_DEC(ExecuteJointPosBuffer)
   SERVICE_CALLBACK_DEC(ClearJointPosBuffer)
-  
+
     // Buffer (TCP)
   SERVICE_CALLBACK_DEC(AddBuffer)
   SERVICE_CALLBACK_DEC(ExecuteBuffer)
@@ -109,9 +109,9 @@ class RobotController
 	  //CSS
   SERVICE_CALLBACK_DEC(ActivateCSS)
   SERVICE_CALLBACK_DEC(DeactivateCSS)
-  
+
   SERVICE_CALLBACK_DEC(ActivateEGM)
-  
+
   SERVICE_CALLBACK_DEC(IOSignal)
 
   // Advertise Services and Topics
@@ -120,12 +120,17 @@ class RobotController
 
   // Call back function for the logging which will be called by a timer event
   void logCallback(const ros::TimerEvent&);
-  
+
   // Call back function for the RRI which will be called by a timer event
   void rriCallback(const ros::TimerEvent&);
-  
+
   // Public access to the ROS node
   ros::NodeHandle *node;
+
+  // EGM mode variable
+  bool egm_running;
+  pthread_t egmThread;
+  pthread_attr_t attrE;
 
   // Non-Blocking move variables
   bool non_blocking;  // Whether we are in non-blocking mode
@@ -154,20 +159,20 @@ class RobotController
   // Error Handling
   int errorId;
   char errorReply[MAX_BUFFER];
-  
+
   // Move commands are public so that the non-blocking thread can use it
-  bool setCartesianJ(double x, double y, double z, 
+  bool setCartesianJ(double x, double y, double z,
     double q0, double qx, double qy, double qz);
-  bool setCartesian(double x, double y, double z, 
+  bool setCartesian(double x, double y, double z,
     double q0, double qx, double qy, double qz);
-  bool setJoints(double j1, double j2, double j3, 
+  bool setJoints(double j1, double j2, double j3,
       double j4, double j5, double j6);
-      
+
   // Buffer Commands for joint positions
   bool addJointPosBuffer(double j1, double j2, double j3, double j4, double j5, double j6);
   bool executeJointPosBuffer();
   bool clearJointPosBuffer();
-  
+
   // Buffer Commands for joint positions
   bool addBuffer(double x, double y, double z, double q0, double qx, double qy, double qz);
   bool executeBuffer();
@@ -192,12 +197,12 @@ class RobotController
   bool connectMotionServer(const char* ip, int port);
   bool connectLoggerServer(const char* ip, int port);
   bool establishRRI(int port);
-  
+
   // Sets up the default robot configuration
   bool defaultRobotConfiguration();
 
   //handles to ROS stuff
-  
+
   ros::Publisher handle_robot_RosJointState;
   ros::Publisher handle_robot_CartesianLog;
   ros::Publisher handle_robot_JointsLog;
@@ -237,22 +242,22 @@ class RobotController
   ros::ServiceServer handle_robot_ActivateEGM;
   ros::ServiceServer handle_robot_SetMotionSupervision;
   ros::ServiceServer handle_robot_IOSignal;
- 
+
   // Helper function for communicating with robot server
-  bool sendAndReceive(char *message, int messageLength, 
+  bool sendAndReceive(char *message, int messageLength,
       char*reply, int idCode=-1);
 
   // Internal functions that communicate with the robot
   bool ping();
-  bool getCartesian(double &x, double &y, double &z, 
+  bool getCartesian(double &x, double &y, double &z,
       double &q0, double &qx, double &qy, double &qz);
   bool getJoints(double &j1, double &j2, double &j3,
       double &j4, double &j5, double &j6);
-  bool setTool(double x, double y, double z, 
+  bool setTool(double x, double y, double z,
     double q0, double qx, double qy, double qz);
-  bool setInertia(double m, double cgx, double cgy, 
+  bool setInertia(double m, double cgx, double cgy,
     double cgz, double ix, double iy, double iz);
-  bool setWorkObject(double x, double y, double z, 
+  bool setWorkObject(double x, double y, double z,
     double q0, double qx, double qy, double qz);
   bool setSpeed(double tcp, double ori);
   bool setAcc(double acc, double deacc);
@@ -265,12 +270,13 @@ class RobotController
   bool deactCSS(geometry_msgs::Pose pose);
   //EGM
   bool actEGM(robot_comm::robot_ActivateEGM::Request& req);
+  bool stopEGM(robot_comm::robot_StopEGM::Request& req);
   //signal
   bool iosignal(int output_num, int signal);
-  
+
   // Check if robot is currently moving or not
   bool is_moving();
-  
+
   // Functions to handle setting up non-blocking step sizes
   bool setTrackDist(double pos_dist, double ang_dist);
   bool setNonBlockSpeed(double tcp, double ori);
@@ -292,7 +298,7 @@ class RobotController
   Quaternion curQ;
   double curJ[NUM_JOINTS];
   double curForce[NUM_FORCES];
-  
+
   // XML parser for rri
-  TiXmlDocument xmldoc;  
+  TiXmlDocument xmldoc;
 };
