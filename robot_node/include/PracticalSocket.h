@@ -63,6 +63,10 @@ public:
    */
   ~Socket();
 
+  void setBlocking() throw(SocketException);
+
+  void setNonBlocking() throw(SocketException);
+
   /**
    *   Get the local address
    *   @return local address of socket
@@ -311,7 +315,7 @@ public:
   int recvFrom(void *buffer, int bufferLen, string &sourceAddress,
                unsigned short &sourcePort) throw(SocketException);
 
-  int setTimeout(int usec);
+  int setTimeout(int sec, int usec);
 
   /**
    *   Set the multicast TTL
