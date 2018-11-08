@@ -131,6 +131,7 @@ class RobotComm
     bool SetSpeed(const double tcp, const double ori);
     bool GetSpeed(double &tcp, double &ori);
     bool SetAcc(const double acc, const double deacc);
+    bool IOSignal(const int output_num, const int signal);
     bool GetWorkObject(HomogTransf &workObject);
     bool GetWorkObject(double workObject[7]);
     bool GetTool(HomogTransf &tool);

@@ -19,7 +19,7 @@ robot1: {
   hostRRIPort: 13000,
   vacuum: 0,
   supervision: 90,
-},
+}
 
 # Robot 2 (192.168.1.2, controller mcube-rob2)
 robot2: {
