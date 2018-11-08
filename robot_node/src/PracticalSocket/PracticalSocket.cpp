@@ -117,6 +117,18 @@ Socket::~Socket() {
   sockDesc = -1;
 }
 
+void Socket::setBlocking() throw(SocketException) {
+  int flags;
+  flags = fcntl(sockDesc,F_GETFL,0);
+  fcntl(sockDesc, F_SETFL, flags & ~O_NONBLOCK);
+}
+
+void Socket::setNonBlocking() throw(SocketException) {
+  int flags;
+  flags = fcntl(sockDesc,F_GETFL,0);
+  fcntl(sockDesc, F_SETFL, flags | O_NONBLOCK);
+}
+
 string Socket::getLocalAddress() throw(SocketException) {
   sockaddr_in addr;
   unsigned int addr_len = sizeof(addr);
@@ -355,9 +367,9 @@ int UDPSocket::recvFrom(void *buffer, int bufferLen, string &sourceAddress,
   return rtn;
 }
 
-int UDPSocket::setTimeout(int usec) {
+int UDPSocket::setTimeout(int sec, int usec) {
   struct timeval t;
-  t.tv_sec = 0;
+  t.tv_sec = sec;
   t.tv_usec = usec; // 0.5 seconds
   // References:
   // https://github.com/mzahana/MavLinkBridge/commit/5c9b5fbf9413022c5252d95d79e313fc26c0af62#diff-78c9ecda78a15146c81e84dc49c0f585
