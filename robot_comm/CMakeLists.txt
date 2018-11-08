@@ -49,6 +49,7 @@ add_service_files(DIRECTORY srv FILES
     robot_SetWorkObject.srv
     robot_SetZone.srv
     robot_Stop.srv
+    robot_StopEGM.srv
     robot_IOSignal.srv
 )
 
@@ -68,6 +69,7 @@ catkin_package(
 )
 
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -89,4 +91,3 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
 )
-
