@@ -43,6 +43,9 @@
 #include <robot_comm/robot_DeactivateCSS.h>
 
 #include <robot_comm/robot_ActivateEGM.h>
+#include <robot_comm/robot_StopEGM.h>
+
+#include <robot_comm/robot_IOSignal.h>
 
 #include <geometry_msgs/Pose.h>
 
@@ -171,13 +174,14 @@ class RobotComm
     bool moveReset(void);
     bool setupRobot(double tcp, double ori, int zone, double joints[NUM_JOINTS], geometry_msgs::Pose pose);
 
-    bool ActivateEGM();
+    bool ActivateEGM(bool mode, int timeout);
+    bool StopEGM();
 
     bool SetDefaults();
 
   private:
     std::string robotname;
-  
+
     // Subscribers
     ros::Subscriber robot_cartesian_sub;
     ros::Subscriber robot_joints_sub;
@@ -206,15 +210,17 @@ class RobotComm
     ros::ServiceClient handle_robot_GetFK;
     ros::ServiceClient handle_robot_Approach;
     ros::ServiceClient handle_robot_SetMotionSupervision;
-    
+
     ros::ServiceClient handle_robot_AddJointPosBuffer;
     ros::ServiceClient handle_robot_ExecuteJointPosBuffer;
     ros::ServiceClient handle_robot_ClearJointPosBuffer;
     ros::ServiceClient handle_robot_AddBuffer;
     ros::ServiceClient handle_robot_ExecuteBuffer;
     ros::ServiceClient handle_robot_ClearBuffer;
-    
+
     ros::ServiceClient handle_robot_ActivateEGM;
+    ros::ServiceClient handle_robot_StopEGM;
+    ros::ServiceClient handle_robot_IOSignal;
 
     // ROS services
     robot_comm::robot_Ping robot_Ping_srv;
@@ -239,17 +245,20 @@ class RobotComm
     robot_comm::robot_GetIK robot_GetIK_srv;
     robot_comm::robot_GetFK robot_GetFK_srv;
     robot_comm::robot_Approach robot_Approach_srv;
-    
+
     robot_comm::robot_AddJointPosBuffer robot_AddJointPosBuffer_srv;
     robot_comm::robot_ExecuteJointPosBuffer robot_ExecuteJointPosBuffer_srv;
     robot_comm::robot_ClearJointPosBuffer robot_ClearJointPosBuffer_srv;
-    
+
     robot_comm::robot_AddBuffer robot_AddBuffer_srv;
     robot_comm::robot_ExecuteBuffer robot_ExecuteBuffer_srv;
     robot_comm::robot_ClearBuffer robot_ClearBuffer_srv;
-    
+
     robot_comm::robot_ActivateEGM robot_ActivateEGM_srv;
-    
+    robot_comm::robot_StopEGM robot_StopEGM_srv;
+
+    robot_comm::robot_IOSignal robot_IOSignal_srv;
+
 };
 
 #endif //ROBOT_COMM_H
