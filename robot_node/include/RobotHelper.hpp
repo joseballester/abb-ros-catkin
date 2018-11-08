@@ -32,8 +32,8 @@ private:
   uint32_t start_tick;
   UDPSocket* sock;
   int udpPort;
-  const static int MAX_BUFFER = 1400;
-  char inBuffer[MAX_BUFFER];
+  const static int MAX_ROBOT_BUFFER = 1400;
+  char inBuffer[MAX_ROBOT_BUFFER];
   std::string outBuffer;
   int messageSize;
   std::string sourceAddr;
