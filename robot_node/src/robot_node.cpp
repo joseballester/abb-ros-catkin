@@ -9,8 +9,6 @@
 //
 
 #include "robot_node.h"
-#include "RobotHelper.hpp"
-#include "EGMHelper.hpp"
 #include "egm.pb.h"
 
 
@@ -103,7 +101,7 @@ bool RobotController::init(std::string id)
   node->param<bool>(robotname_sl + "/useLogger", useLogger, true);
 
   connectMotionServer(robotIp.c_str(), robotMotionPort);
-  if(!motionConnected)
+  if(!motionConnected )
   {
     return false;
   }
@@ -166,6 +164,14 @@ bool RobotController::init(std::string id)
   }
 
   return true;
+}
+
+void RobotController::setEgmRunning(bool val) {
+  egm_running = val;
+}
+
+bool RobotController::getEgmRunning() {
+  return egm_running;
 }
 
 // This function initializes the default configuration of the robot.
@@ -1158,10 +1164,10 @@ SERVICE_CALLBACK_DEF(DeactivateCSS)
 //////////////////////////////////////////////////////////////////////////////
 void *egmMain(void *args)
 {
-  pair<RobotController*, std::string> p = (pair<RobotController*, std::string>) args;
+  pair<RobotController*, std::string> *p = (pair<RobotController*, std::string>*) args;
   // Recover the pointer to the main node
-  RobotController* ABBrobot = p.first;
-  std::string egm_mode = p.second;
+  RobotController* ABBrobot = p->first;
+  std::string egm_mode = p->second;
 
   // TODO: change as parameters
   limits x_limits = limits(0.1, 0.6);
@@ -1169,8 +1175,10 @@ void *egmMain(void *args)
   limits z_limits = limits(0.0, 0.5);
   double hz = 250.0;
 
-  ROSHelper ros_helper = ROSHelper(ABBrobot->node);
-  RobotHelper robot_controller = RobotHelper(ABBrobot->node, 6510, x_limits, y_limits, z_limits);
+  ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
+
+  ROSHelper ros_helper = ROSHelper(*ABBrobot->node);
+  RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510, x_limits, y_limits, z_limits);
 
   ros::Rate rate(hz);
 
@@ -1178,7 +1186,9 @@ void *egmMain(void *args)
   sensor_msgs::JointState joint_state;
   abb::egm::EgmFeedBack feedback;
 
-  while (ros::ok())
+  ROS_INFO("ROBOT_CONTROLLER: EGM controller started.");
+
+  while (ros::ok() && ABBrobot->getEgmRunning())
   {
     ros::spinOnce();
     command_pose = ros_helper.get_command_pose();
@@ -1200,7 +1210,8 @@ void *egmMain(void *args)
     rate.sleep();
   }
 
-  ROS_INFO("ROBOT_CONTROLLER: EGM controller has ended.");
+  ROS_INFO("ROBOT_CONTROLLER: EGM controller terminated.");
+  ABBrobot->setEgmRunning(false);
 
   pthread_exit((void*) 0);
 }
@@ -1217,14 +1228,18 @@ SERVICE_CALLBACK_DEF(ActivateEGM)
   // If we are in non-blocking mode, stop movement
   if (non_blocking && do_nb_move) stop_nb();
 
-  std::string egm_mode = (mode ? "velocity" : "position");
+  std::string egm_mode = (req.mode ? "velocity" : "position");
 
-  if (pthread_create(&egmThread, &attrE, egmMain, pair<RobotController*, std::string>(this, egm_mode)) != 0)
+  pair<RobotController*, std::string> p = pair<RobotController*, std::string>(this, egm_mode);
+
+  if (pthread_create(&egmThread, &attrE, egmMain, (void *) &p) != 0)
   {
     res.ret = 0;
     res.msg = "ROBOT_CONTROLLER: Unable to create EGM thread.";
     return false;
   }
+
+  egm_running = true;
 
   return RUN_AND_RETURN_RESULT(actEGM(req), res.ret, res.msg, "Not able to activate EGM");
 }
@@ -1238,15 +1253,11 @@ SERVICE_CALLBACK_DEF(StopEGM)
     return false;
   }
 
-  bool result = RUN_AND_RETURN_RESULT(actEGM(req), res.ret, res.msg, "Not able to stop EGM");
+  egm_running = false;
+  void *statusE;
+  pthread_join(egmThread, &statusE);
 
-  if(result) {
-    void *statusE;
-    pthread_join(egmThread, &statusE);
-    egm_running = false;
-  }
-
-  return result;
+  return true;
 }
 
 
@@ -1743,14 +1754,6 @@ bool RobotController::actEGM(robot_comm::robot_ActivateEGM::Request& req)
 {
   PREPARE_TO_TALK_TO_ROBOT
   strcpy(message, ABBInterpreter::actEGM(req.mode, req.timeout, randNumber).c_str());
-  SEND_MSG_TO_ROBOT_AND_END
-}
-
-// Stop EGM
-bool RobotController::stopEGM(robot_comm::robot_StopEGM::Request& req)
-{
-  PREPARE_TO_TALK_TO_ROBOT
-  strcpy(message, ABBInterpreter::stopEGM(randNumber).c_str());
   SEND_MSG_TO_ROBOT_AND_END
 }
 

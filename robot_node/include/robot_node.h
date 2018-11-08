@@ -13,7 +13,13 @@
 
 #include "ABBInterpreter.h"
 
-#include "PracticalSocket/PracticalSocket.h" // For UDPSocket and SocketException
+#define MAX_BUFFER 10000
+
+#include "ROSHelper.hpp"
+#include "RobotHelper.hpp"
+#include "EGMHelper.hpp"
+
+#include "PracticalSocket.h" // For UDPSocket and SocketException
 #include "tinyxml.h"
 
 //ROS specific
@@ -24,7 +30,6 @@
 #include <std_msgs/Bool.h>
 
 //#define MAX_BUFFER 256
-#define MAX_BUFFER 10000
 #define ID_CODE_MAX 999
 
 #define SERVER_BAD_MSG 0
@@ -70,6 +75,8 @@ class RobotController
 
   // Initialize the robot
   bool init(std::string id = "");
+  void setEgmRunning(bool val);
+  bool getEgmRunning();
   string robotname;
   string robotname_sl;
 
@@ -111,6 +118,7 @@ class RobotController
   SERVICE_CALLBACK_DEC(DeactivateCSS)
 
   SERVICE_CALLBACK_DEC(ActivateEGM)
+  SERVICE_CALLBACK_DEC(StopEGM)
 
   SERVICE_CALLBACK_DEC(IOSignal)
 
@@ -240,6 +248,7 @@ class RobotController
   ros::ServiceServer handle_robot_ActivateCSS;
   ros::ServiceServer handle_robot_DeactivateCSS;
   ros::ServiceServer handle_robot_ActivateEGM;
+  ros::ServiceServer handle_robot_StopEGM;
   ros::ServiceServer handle_robot_SetMotionSupervision;
   ros::ServiceServer handle_robot_IOSignal;
 
