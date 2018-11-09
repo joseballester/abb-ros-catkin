@@ -1,11 +1,11 @@
 #include "ROSHelper.hpp"
 
-ROSHelper::ROSHelper(ros::NodeHandle n)
+ROSHelper::ROSHelper(ros::NodeHandle n, std::string robotname_sl)
 {
-  command_pose_sub = n.subscribe("/command_pose", 100, &ROSHelper::load_command_pose, this);
-  joint_state_pub = n.advertise<sensor_msgs::JointState>("joint_states", 100);
-  measured_pose_pub = n.advertise<geometry_msgs::PoseStamped>("measured_pose", 100);
-  sent_pose_pub = n.advertise<geometry_msgs::PoseStamped>("sent_pose", 100);
+  command_pose_sub = n.subscribe(robotname_sl + "_EGM/SetCartesian", 100, &ROSHelper::load_command_pose, this);
+  joint_state_pub = n.advertise<sensor_msgs::JointState>(robotname_sl + "_EGM/GetJoints", 100);
+  measured_pose_pub = n.advertise<geometry_msgs::PoseStamped>(robotname_sl + "_EGM/GetCartesian", 100);
+  sent_pose_pub = n.advertise<geometry_msgs::PoseStamped>(robotname_sl + "_EGM/GetSentCartesian", 100);
   command_poses = std::vector<geometry_msgs::PoseStamped>();
   max_queued = 0;
 }
