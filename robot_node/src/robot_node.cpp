@@ -1203,14 +1203,16 @@ void *egmMain(void *args)
       ros_helper.publish_joint_state(joint_state);
     }
     catch (SocketException& e) {
-      ROS_INFO("ROBOT_CONTROLLER: EGM reset by RAPID server.");
+      // EGM is terminated by RAPID (timeout)
+      ROS_INFO("ROBOT_CONTROLLER: EGM terminated by timeout.");
       break;
     }
 
     rate.sleep();
   }
-
-  ROS_INFO("ROBOT_CONTROLLER: EGM controller terminated.");
+  if(!ABBrobot->getEgmRunning()) {
+    ROS_INFO("ROBOT_CONTROLLER: EGM terminated by user.");
+  }
   ABBrobot->setEgmRunning(false);
 
   pthread_exit((void*) 0);
@@ -1257,6 +1259,8 @@ SERVICE_CALLBACK_DEF(StopEGM)
   void *statusE;
   pthread_join(egmThread, &statusE);
 
+  res.ret = 1;
+  res.msg = "ROBOT_CONTROLLER: OK.";
   return true;
 }
 
