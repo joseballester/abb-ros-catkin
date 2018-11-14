@@ -27,17 +27,33 @@ If connection with the ABB controller is successful, a variety of ROS services w
 
 ## Operation modes
 
+- **Standard blocking mode:**
+
+- **Standard non-blocking mode:**
+
+- **EGM mode:**
+
+- **RRI mode:**
+
+When started, the ROS node is working in standard and blocking mode. Standard non-blocking mode can be activated using the [`SetComm`](#setcomm) service, and EGM can be activated via the [`ActivateEGM`](#activateegm) service.
+
 ## Service calls
 
-### Command line
+Note that, for any interface, the specific service name is given by the robot identifier and the service type itself. For example, the `Ping` service for `robot1` will be `/robot1_Ping`.
 
-Any of the services listed below can be called via the `rosservice call` command, followed by the specific service name given by the robot identifier and the service type itself.
+- **Command line**: Any of the services listed below can be called via the `rosservice call` command via terminal. For example, to ping a robot identified by `robot1`, call `rosservice call /robot1_Ping`.
 
-For example, to ping a robot idenitifed by `robot1`:
+- **Python:** Check out the ROS tutorial on [Writing a Simple Service Client (Python)](http://wiki.ros.org/ROS/Tutorials/WritingServiceClient%28python%29#rospy_tutorials.2BAC8-Tutorials.2BAC8-WritingServiceClient.Writing_the_Client_Node).
 
-```
-rosservice call /robot1_Ping
-```
+- **C++:** Check out the ROS tutorial on [Writing a Simple Service Client (C++)](http://wiki.ros.org/ROS/Tutorials/WritingServiceClient%28c%2B%2B%29#roscpp_tutorials.2BAC8-Tutorials.2BAC8-WritingServiceClient.Writing_the_Client_Node).
+
+- **Matlab:** Check out the Matlab tutorial on [Creating a Service Client](https://www.mathworks.com/help/robotics/examples/call-and-provide-ros-services.html#d120e2265). Note that the Robotics System Toolbox should be installed.
+
+  Furthermore, as these services use custom messages for requests and returns, the [Robotics System Toolbox Interface for ROS Custom Messages](https://www.mathworks.com/help/robotics/ug/install-robotics-system-toolbox-support-packages.html) should be installed as well, in order to generate the custom messages for Matlab. After installed, use the `rosgenmsg` to generate them and follow the instructions. For example:
+
+  ```
+  rosgenmsg('/home/mcube/example_project/catkin_ws/src/abb-ros-catkin/')
+  ```
 
 ## Available services
 
