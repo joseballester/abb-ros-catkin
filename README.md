@@ -27,13 +27,13 @@ If connection with the ABB controller is successful, a variety of ROS services w
 
 ## Operation modes
 
-- **Standard blocking mode:**
+- **Standard blocking mode:** User can operate the robot via [standard services](#standard-services). Function calls (e.g. movements) are blocking until the operation is about to finish and cannot be stopped.
 
-- **Standard non-blocking mode:**
+- **Standard non-blocking mode:** User can operate the robot via [standard services](#standard-services). Instructions are not sent immediately to the robot; intermediate targets are sent instead. Therefore, user can stop or change final destinations before final target is achieved. Function calls are non-blocking.
 
-- **EGM mode:**
+- **EGM mode:** User can operate the robot pubishing target poses or velocities to the [`SetCartesian`] topic, depending on the chosen EGM mode when calling [`ActivateEGM`](#activateegm). Current pose and joint state can be obtained via `GetCartesian` and `GetJoints` topics, respectively.
 
-- **RRI mode:**
+- **RRI mode:** EGM predecessor, deprecated.
 
 When started, the ROS node is working in standard and blocking mode. Standard non-blocking mode can be activated using the [`SetComm`](#setcomm) service, and EGM can be activated via the [`ActivateEGM`](#activateegm) service.
 
