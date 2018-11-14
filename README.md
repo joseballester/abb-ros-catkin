@@ -47,7 +47,7 @@ Note that, for any interface, the specific service name is given by the robot id
 
 - **C++:** Check out the ROS tutorial on [Writing a Simple Service Client (C++)](http://wiki.ros.org/ROS/Tutorials/WritingServiceClient%28c%2B%2B%29#roscpp_tutorials.2BAC8-Tutorials.2BAC8-WritingServiceClient.Writing_the_Client_Node).
 
-- **Matlab:** Check out the Matlab tutorial on [Creating a Service Client](https://www.mathworks.com/help/robotics/examples/call-and-provide-ros-services.html#d120e2265). Note that the Robotics System Toolbox should be installed.
+- **Matlab:** Check out the Matlab tutorial on [Creating a Service Client](https://www.mathworks.com/help/robotics/examples/call-and-provide-ros-services.html#d120e2265). Note that Robotics System Toolbox is required.
 
   Furthermore, as these services use custom messages for requests and returns, the [Robotics System Toolbox Interface for ROS Custom Messages](https://www.mathworks.com/help/robotics/ug/install-robotics-system-toolbox-support-packages.html) should be installed as well, in order to generate the custom messages for Matlab. After installed, use the `rosgenmsg` to generate them and follow the instructions. For example:
 
@@ -67,19 +67,159 @@ Note that, for any interface, the specific service name is given by the robot id
 
 - **Output:** `int64 ret`, `string msg`
 
-#### `SetCartesianJ`
+#### `SetCartesian`
 
-- `SetCartesianJ` moves the robot to a given cartesian position using a joint move. If we are currently in non-blocking mode, then we simply setup the move and let the non-blocking thread handle the actual moving. If we are in blocking mode, we then communicate with the robot to execute the move.
+- `SetCartesian` moves the robot to a given cartesian position.
 
 - **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
 
 - **Output:** `int64 ret`, `string msg`
 
+#### `SetCartesianJ`
+
+- `SetCartesianJ` moves the robot to a given cartesian position using a joint move.
+
+- **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `GetCartesian`
+
+- `GetCartesian` queries the cartesian position of the robot.
+
+- **Input:** empty
+
+- **Output:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`, `int64 ret`, `string msg`
+
+#### `SetJoints`
+
+- `SetJoints` moves the robot to a given joint position.
+
+- **Input:** `float64 j1`, `float64 j2`, `float64 j3`, `float64 j4`, `float64 j5`, `float64 j6`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `GetJoints`
+
+- `GetJoints` queries the robot for the current position of its joints.
+
+- **Input:** empty
+
+- **Output:** `float64 j1`, `float64 j2`, `float64 j3`, `float64 j4`, `float64 j5`, `float64 j6`, `int64 ret`, `string msg`
+
+#### `GetIK`
+
+- `GetIK` queries the robot for the inverse kinematics (joint angles) given a cartesian position.
+
+- **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
+
+- **Output:** `float64 j1`, `float64 j2`, `float64 j3`, `float64 j4`, `float64 j5`, `float64 j6`, `int64 ret`, `string msg`
+
+#### `GetFK`
+
+- `GetFK` queries the robot for the forward kinematics (cartesian position) given the joint angles.
+
+- **Input:** `float64 j1`, `float64 j2`, `float64 j3`, `float64 j4`, `float64 j5`, `float64 j6`
+
+- **Output:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`, `int64 ret`, `string msg`
+
+#### `Stop`
+
+- `Stop` stops the robot when operating in standard non-blocking mode.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetTool`
+
+- `SetTool` sets the tool frame of the robot.
+
+- **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetInertia`
+
+- `SetInertia` sets the inertia of the tool of the robot.
+
+- **Input:** `float64 m`, `float64 cgx`, `float64 cgy`, `float64 cgz`, `float64 ix`, `float64 iy`, `float64 iz`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetWorkObject`
+
+- `SetWorkObject` sets the work object of the robot.
+
+- **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetComm`
+
+- `SetComm` sets the communication mode of our robot (standard blocking mode or standard non-blocking mode).
+
+- **Input:** `int64 mode` (0 for non-blocking, 1 for blocking)
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetMotionSupervision`
+
+- `SetMotionSupervision` sets the motion supervision of the robot.
+
+- **Input:** `float64 supervision` (between 1 and 300, recommended: 50)
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetSpeed`
+
+- `SetSpeed` sets the speed of the robot in standard mode. This will affect the step size in non-blocking mode or the actual speed in blocking mode.
+
+- **Input:** `float64 tcp` (in mm/s), `float64 ori` (in deg/s)
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetAcc`
+
+- `SetAcc` sets the acceleration of the robot in standard mode. This will affect the step size in non-blocking mode or the actual speed in blocking mode.
+
+- **Input:** `float64 acc` (in mm/s^2), `float64 deacc` (in mm/s^2)
+
+- **Output:** `int64 ret`, `string msg`
+
+
+#### `GetState`
+
+- `GetState` gets the current state of the robot.
+
+- **Input:** empty
+
+- **Output:** `float64 tcp` (in mm/s), `float64 ori` (in deg/s), `int64 zone`, `int64 vacuum`, `float64 workx`, `float64 worky`, `float64 workz`, `float64 workq0`, `float64 workqx`, `float64 workqy`, `float64 workqz`, `float64 toolx`, `float64 tooly`, `float64 toolz`, `float64 toolq0`, `float64 toolqx`, `float64 toolqy`, `float64 toolqz`, `float64 toolm`, `float64 toolcgx`, `float64 toolcgy`, `float64 toolcgz`, `float64 toolix`, `float64 tooliy`, `float64 tooliz`, `int64 ret`, `string msg`
+
+#### `SetZone`
+
+- `SetZone` sets the zone of the robot. This is the distance before the end of a motion that the server will respond. This enables smooth motions.
+
+- Read the service definition at `robot_comm/srv/robot_SetZone.srv` for more details.
 
 
 ### EGM services
 
-#### `ActivateEGM`: EGM mode activations
+#### `ActivateEGM`
+
+- `ActivateEGM` activates EGM. If called when standard non-blocking mode is running, all movements will be stopped. After calling it, all other services will be disabled except `StopEGM` until this last one is called or timeout.
+
+- **Input:** `bool mode` (`0` for pose mode, `1` for velocity mode), `int64 timeout` (in seconds)
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `StopEGM`
+
+- `StopEGM` stops EGM. After calling it, all other services will be enabled again and standard mode will be recovered.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
 
 ## Examples
 
