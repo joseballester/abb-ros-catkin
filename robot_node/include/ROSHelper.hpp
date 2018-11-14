@@ -11,7 +11,7 @@
 
 class ROSHelper {
 public:
-  ROSHelper(ros::NodeHandle n);
+  ROSHelper(ros::NodeHandle n, std::string robotname_sl);
 
   ~ROSHelper();
 
