@@ -10,7 +10,7 @@ robot1: {
   toolIX: 0.023, toolIY: 0.02, toolIZ: 0.036,
   workobjectQ0: 1, workobjectQX: 0, workobjectQY: 0, workobjectQZ: 0,
   workobjectX: 0, workobjectY: 0, workobjectZ: 0,
-  accelerationStart: 1, accelerationEnd: 1,
+  accelerationStart: 28, accelerationEnd: 28,
 
   zone: 1,
   robotIp: 192.168.37.3,
@@ -33,7 +33,7 @@ robot2: {
   toolIX: 0.023, toolIY: 0.02, toolIZ: 0.036,
   workobjectQ0: 0.707, workobjectQX: 0, workobjectQY: -0.707, workobjectQZ: 0,
   workobjectX: 600, workobjectY: 0, workobjectZ: 0,
-  accelerationStart: 1, accelerationEnd: 1,
+  accelerationStart: 28, accelerationEnd: 28,
 
   zone: 1,
   robotIp: 192.168.1.2,
