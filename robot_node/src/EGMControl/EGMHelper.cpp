@@ -25,9 +25,9 @@ void Pose_to_PoseStamped(const geometry_msgs::Pose& pose, ros::Time time, geomet
 
 void EgmFeedBack_to_Pose(abb::egm::EgmFeedBack *fb, geometry_msgs::Pose& pose)
 {
-  pose.position.x = fb->cartesian().pos().x()/1000.0;
-  pose.position.y = fb->cartesian().pos().y()/1000.0;
-  pose.position.z = fb->cartesian().pos().z()/1000.0;
+  pose.position.x = fb->cartesian().pos().x();
+  pose.position.y = fb->cartesian().pos().y();
+  pose.position.z = fb->cartesian().pos().z();
   pose.orientation.x = fb->cartesian().orient().u1();
   pose.orientation.y = fb->cartesian().orient().u2();
   pose.orientation.z = fb->cartesian().orient().u3();
@@ -60,9 +60,9 @@ abb::egm::EgmSensor* Position_to_EgmSensor(geometry_msgs::Pose pose, unsigned in
   header->set_tm(tick);
 
   abb::egm::EgmCartesian *pc = new abb::egm::EgmCartesian();
-  pc->set_x(pose.position.x*1000.0);
-  pc->set_y(pose.position.y*1000.0);
-  pc->set_z(pose.position.z*1000.0);
+  pc->set_x(pose.position.x);
+  pc->set_y(pose.position.y);
+  pc->set_z(pose.position.z);
 
   abb::egm::EgmQuaternion *pq = new abb::egm::EgmQuaternion();
   pq->set_u0(pose.orientation.w);
@@ -86,9 +86,9 @@ abb::egm::EgmSensor* Position_to_EgmSensor(geometry_msgs::Pose pose, unsigned in
 abb::egm::EgmSensor* Velocity_to_EgmSensor(geometry_msgs::Pose vel, geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick)
 {
   abb::egm::EgmCartesianSpeed *cs = new abb::egm::EgmCartesianSpeed();
-  cs->add_value(vel.position.x*1000.0);
-  cs->add_value(vel.position.y*1000.0);
-  cs->add_value(vel.position.z*1000.0);
+  cs->add_value(vel.position.x);
+  cs->add_value(vel.position.y);
+  cs->add_value(vel.position.z);
   cs->add_value(vel.orientation.x);
   cs->add_value(vel.orientation.y);
   cs->add_value(vel.orientation.z);
@@ -100,15 +100,4 @@ abb::egm::EgmSensor* Velocity_to_EgmSensor(geometry_msgs::Pose vel, geometry_msg
   abb::egm::EgmSensor* msg = Position_to_EgmSensor(pose, seqno, tick);
   msg->set_allocated_speedref(speedref);
   return msg;
-}
-
-void translate_pose_by_velocity(geometry_msgs::Pose pose, geometry_msgs::Pose vel, double dt, geometry_msgs::Pose& target)
-{
-  target.position.x += vel.position.x * dt;
-  target.position.y += vel.position.y * dt;
-  target.position.z += vel.position.z * dt;
-  target.orientation.x += 0.5*dt*(pose.orientation.w*vel.orientation.x - pose.orientation.y*vel.orientation.z + pose.orientation.z*vel.orientation.y);
-  target.orientation.y += 0.5*dt*(pose.orientation.w*vel.orientation.y + pose.orientation.x*vel.orientation.z - pose.orientation.z*vel.orientation.x);
-  target.orientation.z += 0.5*dt*(pose.orientation.w*vel.orientation.z + pose.orientation.x*vel.orientation.y + pose.orientation.y*vel.orientation.x);
-  target.orientation.w -= 0.5*dt*(pose.orientation.x*vel.orientation.x + pose.orientation.y*vel.orientation.y + vel.orientation.z*vel.orientation.z);
 }

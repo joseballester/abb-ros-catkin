@@ -25,6 +25,4 @@ abb::egm::EgmSensor* Position_to_EgmSensor(geometry_msgs::Pose pose, uint32_t se
 
 abb::egm::EgmSensor* Velocity_to_EgmSensor(geometry_msgs::Pose vel, geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick);
 
-void translate_pose_by_velocity(geometry_msgs::Pose pose, geometry_msgs::Pose vel, double dt, geometry_msgs::Pose& target);
-
 #endif
