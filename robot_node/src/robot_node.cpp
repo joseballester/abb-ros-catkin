@@ -1170,9 +1170,9 @@ void *egmMain(void *args)
   std::string egm_mode = p->second;
 
   // TODO: change as parameters
-  limits x_limits = limits(0.1, 0.6);
-  limits y_limits = limits(-0.4, 0.4);
-  limits z_limits = limits(0.0, 0.5);
+  limits x_limits = limits(100.0, 600.0);
+  limits y_limits = limits(-400.0, 400.0);
+  limits z_limits = limits(0.0, 500.0);
   double hz = 250.0;
 
   ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
