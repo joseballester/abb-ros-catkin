@@ -10,9 +10,38 @@ ABB ROS node by MCube Lab at MIT
 4. [Available services](#available-services)
     1. [Standard services](#standard-services)
         1. [`Ping`](#ping)
-        2. [`SetCartesianJ`](#setcartesianj)
+        2. [`SetCartesian`](#setcartesian)
+        3. [`SetCartesianJ`](#setcartesianj)
+        4. [`GetCartesian`](#getcartesian)
+        5. [`SetJoints`](#setjoints)
+        6. [`GetJoints`](#getjoints)
+        7. [`GetIK`](#getik)
+        8. [`GetFK`](#getfk)
+        9. [`Stop`](#stop)
+        10. [`SetTool`](#settool)
+        11. [`SetInertia`](#setinertia)
+        12. [`SetWorkObject`](#setworkobject)
+        13. [`SetComm`](#setcomm)
+        14. [`SetMotionSupervision`](#setmotionsupervision)
+        15. [`SetSpeed`](#setspeed)
+        16. [`SetAcc`](#setacc)
+        17. [`GetState`](#getstate)
+        18. [`SetZone`](#setzone)
+        19. [`SetTrackDist`](#settrackdist)
+        20. [`SetDefaults`](#setdefaults)
+        21. [`IsMoving`](#ismoving)
+        22. [`AddBuffer`](#addbuffer)
+        23. [`ExecuteBuffer`](#executebuffer)
+        24. [`ClearBuffer`](#clearbuffer)
+        25. [`AddJointPosBuffer`](#addjointposbuffer)
+        26. [`ExecuteJointPosBuffer`](#executejointposbuffer)
+        27. [`ClearJointPosBuffer`](#clearjointposbuffer)
+        28. [`ActivateCSS`](#activatecss)
+        29. [`DeactivateCSS`](#deactivatecss)
+        30. [`IOSignal`](#iosignal)
     2. [EGM services](#egm-services)
         1. [`ActivateEGM`](#activateegm)
+        2. [`StopEGM`](#stopegm)
 5. [Examples](#examples)
 
 ## Setting up the package
@@ -201,6 +230,102 @@ Note that, for any interface, the specific service name is given by the robot id
 - `SetZone` sets the zone of the robot. This is the distance before the end of a motion that the server will respond. This enables smooth motions.
 
 - Read the service definition at `robot_comm/srv/robot_SetZone.srv` for more details.
+
+#### `SetTrackDist`
+
+- `SetTrackDist` sets the tracking distance of the robot while in standard non-blocking mode.
+
+- **Input:** `float64 pos_dist` (in mm), `float64 ang_dist` (in deg)
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `SetDefaults`
+
+- `SetDefaults` restores the robot to default configuration.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `IsMoving`
+
+- `IsMoving` returns whether the robot is moving or not. In blocking mode, this will always return false, as the robot will move only when a function is being called (and is blocking).
+
+- **Input:** empty
+
+- **Output:** `bool moving`, `int64 ret`, `string msg`
+
+#### `AddBuffer`
+
+- `AddBuffer` adds a TCP pose buffer command.
+
+- **Input:** `float64 x`, `float64 y`, `float64 z`, `float64 q0`, `float64 qx`, `float64 qy`, `float64 qz`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `ExecuteBuffer`
+
+- `ExecuteBuffer` executes the buffer defined by several `AddBuffer` service calls.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `ClearBuffer`
+
+- `ClearBuffer` clears the buffer defined by several `AddBuffer` service calls.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `AddJointPosBuffer`
+
+- `AddJointPosBuffer` adds a joint position buffer command.
+
+- **Input:** `float64 j1`, `float64 j2`, `float64 j3`, `float64 j4`, `float64 j5`, `float64 j6`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `ExecuteJointPosBuffer`
+
+- `ExecuteBuffer` executes the buffer defined by several `AddJointPosBuffer` service calls.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `ClearJointPosBuffer`
+
+- `ClearBuffer` clears the buffer defined by several `AddJointPosBuffer` service calls.
+
+- **Input:** empty
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `ActivateCSS`
+
+- `ActivateCSS` activates Cartesian Soft Servo.
+
+- **Input:** `int32 refFrame`, `float64 refOrient_q0`, `float64 refOrient_qx`, `float64 refOrient_qy`, `float64 refOrient_qz`, `int32 softDir`, `float64 stiffness`, `float64 stiffnessNonSoftDir`, `int32 allowMove`, `float64 ramp`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `DeactivateCSS`
+
+- `DeactivateCSS` deactivates Cartesian Soft Servo.
+
+- **Input:** `geometry_msgs/Pose ToPose`
+
+- **Output:** `int64 ret`, `string msg`
+
+#### `IOSignal`
+
+- `IOSignal` sets I/O signals to the robot.
+
+- **Input:** `int32 output_num` (from 1 to 4), `int32 signal` (0 for off, 1 for on)
+
+- **Output:** `int64 ret`, `string msg`
 
 
 ### EGM services
