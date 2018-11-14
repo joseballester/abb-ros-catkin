@@ -244,8 +244,8 @@ bool RobotController::defaultRobotConfiguration()
     return false;
 
   //Acceleration
-  node->getParam(robotname_sl + "/accelerationStart",defAccelerationStart);
-  node->getParam(robotname_sl + "/accelerationEnd",defAccelerationEnd);
+  node->getParam(robotname_sl + "/maxAcceleration",defAccelerationStart);
+  node->getParam(robotname_sl + "/maxDeacceleration",defAccelerationEnd);
   if(!setAcc(defAccelerationStart,defAccelerationEnd))
     return false;
 
