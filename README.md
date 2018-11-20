@@ -6,6 +6,7 @@ ABB ROS node by MCube Lab at MIT
 
 1. [Setting up the package](#setting-up-the-package)
 2. [Operation modes](#operation-modes)
+    1. [Using EGM](#using-egm)
 3. [Service calls](#service-calls)
 4. [Available services](#available-services)
     1. [Standard services](#standard-services)
@@ -65,6 +66,10 @@ If connection with the ABB controller is successful, a variety of ROS services w
 - **RRI mode:** EGM predecessor, deprecated.
 
 When started, the ROS node is working in standard and blocking mode. Standard non-blocking mode can be activated using the [`SetComm`](#setcomm) service, and EGM can be activated via the [`ActivateEGM`](#activateegm) service.
+
+### Using EGM
+
+EGM operation mode relies in a constant flow of information between the robot and the computer. More concretely, the robot checks the incoming information (poses or speeds) from the computer and executes it at an approximate rate of 248 Hz. If the user publishes at `/robotN_EGM/SetCartesian` at a slower rate or does not publish at all, those queries will result in no motion (previously sent position or zero speed).
 
 ## Service calls
 
