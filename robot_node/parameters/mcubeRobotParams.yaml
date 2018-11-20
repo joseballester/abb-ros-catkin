@@ -1,45 +1,124 @@
-# Robot 1 (192.168.37.3)
+# ABB IRB 120 Robot 1 (192.168.37.3)
 robot1: {
-  speedORI: 10.0,
-  speedTCP: 50.0,
+  # Robot speed when performing moves in standard mode
+  # See speeddata RAPID documentation, 3.55, page 1185
+  speedORI: 10.0, speedTCP: 50.0,
+
+  # Robot tool frame
+  # See tooldata RAPID documentation, 3.66, page 1208
   toolQ0: 1.0, toolQX: 0.0, toolQY: 0.0, toolQZ: 0.0,
   toolX: 0.0, toolY: 115.0, toolZ: 165.0,
 
+  # Robot tool inertia
+  # See tooldata RAPID documentation, 3.66, page 1209-10
   toolMass: 0.1,
   toolCGX: -0.1, toolCGY: 8.3, toolCGZ: 310.4,
   toolIX: 0.023, toolIY: 0.02, toolIZ: 0.036,
+
+  # Robot work object frame
+  # See wobjdata RAPID documentation, 3.75, page 1224-25
   workobjectQ0: 1, workobjectQX: 0, workobjectQY: 0, workobjectQZ: 0,
   workobjectX: 0, workobjectY: 0, workobjectZ: 0,
+
+  # Maximum acceleration and deacceleration in (m/s^2)
   maxAcceleration: 4, maxDeacceleration: 4,
 
+  # Maximum time for which a speed EGM command will be executed (ms)
+  egmSpeedTimeout: 5000,
+
+  # Zone data: Sets the movement termination behavior based on
+  # stop points or fly-by points and their zones.
+  # See zonedata RAPID documentation, 3.78, page 1232-37, and robot_comm/robot_comm.h
   zone: 1,
+
+  # Connection parameters
   robotIp: 192.168.37.3,
   robotLoggerPort: 5001,
   robotMotionPort: 5000,
   hostRRIPort: 13000,
+
+  # Other parameters
   vacuum: 0,
   supervision: 90,
 }
 
-# Robot 2 (192.168.1.2, controller mcube-rob2)
+# ABB IRB 120 Robot 2 (192.168.1.2, controller mcube-rob2)
 robot2: {
-  speedORI: 10.0,
-  speedTCP: 50.0,
+  # Robot speed when performing moves in standard mode
+  # See speeddata RAPID documentation, 3.55, page 1185
+  speedORI: 10.0, speedTCP: 50.0,
+
+  # Robot tool frame
+  # See tooldata RAPID documentation, 3.66, page 1208
   toolQ0: 1.0, toolQX: 0.0, toolQY: 0.0, toolQZ: 0.0,
   toolX: 0.0, toolY: 0.0, toolZ: 0.0,
 
+  # Robot tool inertia
+  # See tooldata RAPID documentation, 3.66, page 1209-10
   toolMass: 0.1,
   toolCGX: -0.1, toolCGY: 8.3, toolCGZ: 310.4,
   toolIX: 0.023, toolIY: 0.02, toolIZ: 0.036,
+
+  # Robot work object frame
+  # See wobjdata RAPID documentation, 3.75, page 1224-25
   workobjectQ0: 0.707, workobjectQX: 0, workobjectQY: -0.707, workobjectQZ: 0,
   workobjectX: 600, workobjectY: 0, workobjectZ: 0,
+
+  # Maximum acceleration and deacceleration in (m/s^2)
   maxAcceleration: 4, maxDeacceleration: 4,
 
+  # Zone data: Sets the movement termination behavior based on
+  # stop points or fly-by points and their zones.
+  # See zonedata RAPID documentation, 3.78, page 1232-37, and robot_comm/robot_comm.h
   zone: 1,
+
+  # Connection parameters
   robotIp: 192.168.1.2,
   robotMotionPort: 5002,
   robotLoggerPort: 5003,
   hostRRIPort: 13001,
+
+  # Other parameters
   vacuum: 0,
   supervision: 90,
+}
+
+# ABB IRB 1600 (192.168.37.100)
+robot3: {
+  # Robot speed when performing moves in standard mode
+  # See speeddata RAPID documentation, 3.55, page 1185
+  speedORI: 10.0, speedTCP: 50.0,
+
+  # Robot tool frame
+  # See tooldata RAPID documentation, 3.66, page 1208
+  toolQ0: 1.0, toolQX: 0.0, toolQY: 0.0, toolQZ: 0.0,
+  toolX: 0.0, toolY: 0.0, toolZ: 0.0,
+
+  # Robot tool inertia
+  # See tooldata RAPID documentation, 3.66, page 1209-10
+  toolMass: 1.2,
+  toolCGX: -18.9, toolCGY: -0.7, toolCGZ: 463.2,
+  toolIX: 0, toolIY: 0, toolIZ: 0.054,
+
+  # Robot work object frame
+  # See wobjdata RAPID documentation, 3.75, page 1224-25
+  workobjectQ0: 1, workobjectQX: 0, workobjectQY: 0, workobjectQZ: 0,
+  workobjectX: 0, workobjectY: 0, workobjectZ: 0,
+
+  # Maximum acceleration and deacceleration in (m/s^2)
+  maxAcceleration: 4, maxDeacceleration: 4,
+
+  # Zone data: Sets the movement termination behavior based on
+  # stop points or fly-by points and their zones.
+  # See zonedata RAPID documentation, 3.78, page 1232-37, and robot_comm/robot_comm.h
+  zone: 1,
+
+  # Connection parameters
+  robotIp: 192.168.37.100,
+  robotLoggerPort: 5001,
+  robotMotionPort: 5000,
+
+  # Other parameters
+  vacuum: 0,
+  supervision: 90
 }
