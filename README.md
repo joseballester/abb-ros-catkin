@@ -71,6 +71,8 @@ When started, the ROS node is working in standard and blocking mode. Standard no
 
 EGM operation mode relies in a constant flow of information between the robot and the computer. More concretely, the robot checks the incoming information (poses or speeds) from the computer and executes it at an approximate rate of 248 Hz. If the user publishes at `/robotN_EGM/SetCartesian` at a slower rate or does not publish at all, those queries will result in no motion (previously sent position or zero speed).
 
+You can check some basic examples using EGM operation mode in the [`egm-demos` repository](https://github.com/joseballester/egm-demos).
+
 ## Service calls
 
 Note that, for any interface, the specific service name is given by the robot identifier and the service type itself. For example, the `Ping` service for `robot1` will be `/robot1_Ping`.
