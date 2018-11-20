@@ -2,8 +2,8 @@
 #include "EGMHelper.hpp"
 #include "egm.pb.h"
 
-RobotHelper::RobotHelper(ros::NodeHandle n, int udpPort, limits x_limits, limits y_limits, limits z_limits)
-  : seqno(0), start_tick(get_tick()), udpPort(udpPort), x_limits(x_limits), y_limits(y_limits), z_limits(z_limits)
+RobotHelper::RobotHelper(ros::NodeHandle n, int udpPort)
+  : seqno(0), start_tick(get_tick()), udpPort(udpPort)
 {
   sock = new UDPSocket(udpPort);
   sock->setBlocking();
@@ -47,22 +47,18 @@ geometry_msgs::PoseStamped RobotHelper::send_command(geometry_msgs::PoseStamped 
 {
   new_sent_time = ros::Time::now();
   if (command_mode == "velocity") {
-    if(command_pose.header.stamp == ros::Time(0)) {
+    if(command_pose.header.seq == 0) {
       target = geometry_msgs::Pose();
     } else {
       target = command_pose.pose;
     }
     last_egm_sensor = Velocity_to_EgmSensor(target, last_measured_ps.pose, seqno++, get_tick()-start_tick);
   } else {
-    if (command_pose.header.stamp == ros::Time(0)) {
+    if (command_pose.header.seq == 0) {
       target = last_sent_ps.pose;
     } else {
       target = command_pose.pose;
     }
-
-    target.position.x = max(min(target.position.x, x_limits.second), x_limits.first);
-    target.position.y = max(min(target.position.y, y_limits.second), y_limits.first);
-    target.position.z = max(min(target.position.z, z_limits.second), z_limits.first);
 
     last_egm_sensor = Position_to_EgmSensor(target, seqno++, get_tick()-start_tick);
   }

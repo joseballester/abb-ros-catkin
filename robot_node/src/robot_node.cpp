@@ -1176,9 +1176,10 @@ void *egmMain(void *args)
   double hz = 250.0;
 
   ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
+  ABBrobot->node->param<int>(robotname_sl + "/egmSpeedTimeout", egmSpeedTimeout, 1000);
 
   ROSHelper ros_helper = ROSHelper(*ABBrobot->node, ABBrobot->robotname_sl);
-  RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510, x_limits, y_limits, z_limits);
+  RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510);
 
   ros::Rate rate(hz);
 

@@ -17,7 +17,7 @@ typedef std::pair<double, double> limits;
 
 class RobotHelper {
 public:
-  RobotHelper(ros::NodeHandle n, int udpPort, limits x_limits, limits y_limits, limits z_limits);
+  RobotHelper(ros::NodeHandle n, int udpPort);
   ~RobotHelper();
 
   void flush_robot_data();
