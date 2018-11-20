@@ -1169,14 +1169,10 @@ void *egmMain(void *args)
   RobotController* ABBrobot = p->first;
   std::string egm_mode = p->second;
 
-  // TODO: change as parameters
-  limits x_limits = limits(100.0, 600.0);
-  limits y_limits = limits(-400.0, 400.0);
-  limits z_limits = limits(0.0, 500.0);
   double hz = 250.0;
 
   ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
-  ABBrobot->node->param<int>(robotname_sl + "/egmSpeedTimeout", egmSpeedTimeout, 1000);
+  // ABBrobot->node->param<int>(robotname_sl + "/egmSpeedTimeout", egmSpeedTimeout, 1000);
 
   ROSHelper ros_helper = ROSHelper(*ABBrobot->node, ABBrobot->robotname_sl);
   RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510);
