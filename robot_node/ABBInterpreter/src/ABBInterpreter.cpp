@@ -288,7 +288,7 @@ string ABBInterpreter::lenBuffer(int idCode)
 string ABBInterpreter::executeBuffer(bool simultaneous, bool useHandPose, int idCode)
 {
   string msg = stringFromInstructionCodeNoEnding(33,idCode);
-  sprintf(buff,"%+08.1lf %.2d ",simultaneous,useHandPose);  msg += buff ;
+  sprintf(buff,"%.2d %.2d ",simultaneous,useHandPose);  msg += buff ;
   return (msg+"#");
 }
 
@@ -307,7 +307,7 @@ string ABBInterpreter::clearJointPosBuffer(int idCode)
 string ABBInterpreter::executeJointPosBuffer(bool simultaneous, int idCode)
 {
   string msg = stringFromInstructionCodeNoEnding(40,idCode);
-  sprintf(buff,"%+08.1lf ",simultaneous);  msg += buff ;
+  sprintf(buff,"%.2d ",simultaneous);  msg += buff ;
   return (msg+"#");
 }
 
