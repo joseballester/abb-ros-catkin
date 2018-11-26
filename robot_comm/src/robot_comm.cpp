@@ -1,4 +1,4 @@
-#include "robot_comm.h"
+#include <robot_comm/robot_comm.h>
 
 RobotComm::RobotComm()
 {
@@ -17,49 +17,49 @@ RobotComm::~RobotComm()
 
 void RobotComm::subscribe(ros::NodeHandle* np)
 {
-  handle_robot_Ping = 
+  handle_robot_Ping =
     np->serviceClient<robot_comm::robot_Ping>(robotname + "_Ping");
-  handle_robot_SetCartesian = 
+  handle_robot_SetCartesian =
     np->serviceClient<robot_comm::robot_SetCartesian>(robotname + "_SetCartesian");
-  handle_robot_SetCartesianJ = 
+  handle_robot_SetCartesianJ =
     np->serviceClient<robot_comm::robot_SetCartesianJ>(robotname + "_SetCartesianJ");
   handle_robot_SetCartesianA =
     np->serviceClient<robot_comm::robot_SetCartesianA>(robotname + "_SetCartesianA");
-  handle_robot_GetCartesian = 
+  handle_robot_GetCartesian =
     np->serviceClient<robot_comm::robot_GetCartesian>(robotname + "_GetCartesian");
-  handle_robot_SetWorkObject = 
+  handle_robot_SetWorkObject =
     np->serviceClient<robot_comm::robot_SetWorkObject>(robotname + "_SetWorkObject");
-  handle_robot_SetZone = 
+  handle_robot_SetZone =
     np->serviceClient<robot_comm::robot_SetZone>(robotname + "_SetZone");
   handle_robot_SetMotionSupervision =
     np->serviceClient<robot_comm::robot_SetMotionSupervision>(robotname + "_SetMotionSupervision");
-  handle_robot_SetTool = 
+  handle_robot_SetTool =
     np->serviceClient<robot_comm::robot_SetTool>(robotname + "_SetTool");
-  handle_robot_SetInertia = 
+  handle_robot_SetInertia =
     np->serviceClient<robot_comm::robot_SetInertia>(robotname + "_SetInertia");
-  handle_robot_SetJoints = 
+  handle_robot_SetJoints =
     np->serviceClient<robot_comm::robot_SetJoints>(robotname + "_SetJoints");
-  handle_robot_GetJoints = 
+  handle_robot_GetJoints =
     np->serviceClient<robot_comm::robot_GetJoints>(robotname + "_GetJoints");
-  handle_robot_SetComm = 
+  handle_robot_SetComm =
     np->serviceClient<robot_comm::robot_SetComm>(robotname + "_SetComm");
-  handle_robot_SetSpeed = 
+  handle_robot_SetSpeed =
     np->serviceClient<robot_comm::robot_SetSpeed>(robotname + "_SetSpeed");
-  handle_robot_SetAcc = 
+  handle_robot_SetAcc =
     np->serviceClient<robot_comm::robot_SetAcc>(robotname + "_SetAcc");
-  handle_robot_GetState = 
+  handle_robot_GetState =
     np->serviceClient<robot_comm::robot_GetState>(robotname + "_GetState");
-  handle_robot_SetTrackDist = 
+  handle_robot_SetTrackDist =
     np->serviceClient<robot_comm::robot_SetTrackDist>(robotname + "_SetTrackDist");
-  handle_robot_Stop = 
+  handle_robot_Stop =
     np->serviceClient<robot_comm::robot_Stop>(robotname + "_Stop");
-  handle_robot_IsMoving = 
+  handle_robot_IsMoving =
     np->serviceClient<robot_comm::robot_IsMoving>(robotname + "_IsMoving");
-  handle_robot_SetDefaults = 
+  handle_robot_SetDefaults =
     np->serviceClient<robot_comm::robot_SetDefaults>(robotname + "_SetDefaults");
-  handle_robot_GetIK = 
+  handle_robot_GetIK =
     np->serviceClient<robot_comm::robot_GetIK>(robotname + "_GetIK");
-  handle_robot_GetFK = 
+  handle_robot_GetFK =
     np->serviceClient<robot_comm::robot_GetFK>(robotname + "_GetFK");
   handle_robot_GetRobotAngle =
     np->serviceClient<robot_comm::robot_GetRobotAngle>(robotname + "_GetRobotAngle");
@@ -103,22 +103,22 @@ void RobotComm::subscribe(ros::NodeHandle* np)
     np->serviceClient<robot_comm::robot_HandGetPressure>(robotname + "_HandGetPressure");
 }
 
-void RobotComm::subscribeCartesian(ros::NodeHandle* np, int q_len, 
+void RobotComm::subscribeCartesian(ros::NodeHandle* np, int q_len,
     void (*funcPtr)(const robot_comm::robot_CartesianLogConstPtr&))
 {
-  robot_cartesian_sub = np->subscribe(robotname + "_CartesianLog", q_len, funcPtr);  
+  robot_cartesian_sub = np->subscribe(robotname + "_CartesianLog", q_len, funcPtr);
 }
 
-void RobotComm::subscribeJoints(ros::NodeHandle* np, int q_len, 
+void RobotComm::subscribeJoints(ros::NodeHandle* np, int q_len,
     void (*funcPtr)(const robot_comm::robot_JointsLogConstPtr&))
 {
-  robot_joints_sub = np->subscribe(robotname + "_JointsLog", q_len, funcPtr);  
+  robot_joints_sub = np->subscribe(robotname + "_JointsLog", q_len, funcPtr);
 }
 
-void RobotComm::subscribeForce(ros::NodeHandle* np, int q_len, 
+void RobotComm::subscribeForce(ros::NodeHandle* np, int q_len,
     void (*funcPtr)(const robot_comm::robot_ForceLogConstPtr&))
 {
-  robot_force_sub = np->subscribe(robotname + "_ForceLog", q_len, funcPtr);  
+  robot_force_sub = np->subscribe(robotname + "_ForceLog", q_len, funcPtr);
 }
 
 
@@ -173,14 +173,14 @@ bool RobotComm::Ping()
 {
   return handle_robot_Ping.call(robot_Ping_srv);
 }
- 
+
 bool RobotComm::Approach(const geometry_msgs::Pose pose)
 {
   robot_Approach_srv.request.pose = pose;
   return handle_robot_Approach.call(robot_Approach_srv);
 }
- 
-bool RobotComm::SetCartesian(const double x, const double y, const double z, 
+
+bool RobotComm::SetCartesian(const double x, const double y, const double z,
     const double q0, const double qx, const double qy, const double qz)
 {
   robot_SetCartesian_srv.request.x = x;
@@ -212,7 +212,7 @@ bool RobotComm::SetCartesian(const HomogTransf pose)
   return SetCartesian(trans[0],trans[1],trans[2],quat[0],quat[1],quat[2],quat[3]);
 }
 
-bool RobotComm::SetCartesianJ(const double x, const double y, const double z, 
+bool RobotComm::SetCartesianJ(const double x, const double y, const double z,
     const double q0, const double qx, const double qy, const double qz)
 {
   robot_SetCartesianJ_srv.request.x = x;
@@ -290,7 +290,7 @@ bool RobotComm::SetJoints(const double j[7])
 	return handle_robot_SetJoints.call(robot_SetJoints_srv);
 }
 
-bool RobotComm::SetJoints(const double j1, const double j2, const double j3, 
+bool RobotComm::SetJoints(const double j1, const double j2, const double j3,
     const double j4, const double j5, const double j6,  const double j7)
 {
   robot_SetJoints_srv.request.j1 = j1;
@@ -303,7 +303,7 @@ bool RobotComm::SetJoints(const double j1, const double j2, const double j3,
 	return handle_robot_SetJoints.call(robot_SetJoints_srv);
 }
 
-bool RobotComm::SetWorkObject(const double x, const double y, const double z, 
+bool RobotComm::SetWorkObject(const double x, const double y, const double z,
     const double q0, const double qx, const double qy, const double qz)
 {
   robot_SetWorkObject_srv.request.x = x;
@@ -328,7 +328,7 @@ bool RobotComm::SetMotionSupervision(double sup)
   return handle_robot_SetMotionSupervision.call(robot_SetMotionSupervision_srv);
 }
 
-bool RobotComm::SetTool(const double x, const double y, const double z, 
+bool RobotComm::SetTool(const double x, const double y, const double z,
     const double q0, const double qx, const double qy, const double qz)
 {
   robot_SetTool_srv.request.x = x;
@@ -341,7 +341,7 @@ bool RobotComm::SetTool(const double x, const double y, const double z,
 	return handle_robot_SetTool.call(robot_SetTool_srv);
 }
 
-bool RobotComm::SetInertia(const double m, const double cgx, const double cgy, 
+bool RobotComm::SetInertia(const double m, const double cgx, const double cgy,
     const double cgz, const double ix, const double iy, const double iz)
 {
   robot_SetInertia_srv.request.m = m;
@@ -364,33 +364,33 @@ bool RobotComm::SetSpeed(const double tcp, const double ori)
 {
   robot_SetSpeed_srv.request.tcp = tcp;
   robot_SetSpeed_srv.request.ori = ori;
-  return handle_robot_SetSpeed.call(robot_SetSpeed_srv);  
+  return handle_robot_SetSpeed.call(robot_SetSpeed_srv);
 }
 
 bool RobotComm::SetAcc(const double acc, const double deacc)
 {
   robot_SetAcc_srv.request.acc = acc;
   robot_SetAcc_srv.request.deacc = deacc;
-  return handle_robot_SetAcc.call(robot_SetAcc_srv);  
+  return handle_robot_SetAcc.call(robot_SetAcc_srv);
 }
 
 bool RobotComm::IOSignal(const int output_num, const int signal)
 {
   robot_IOSignal_srv.request.output_num = output_num;
   robot_IOSignal_srv.request.signal = signal;
-  return handle_robot_IOSignal.call(robot_IOSignal_srv);  
+  return handle_robot_IOSignal.call(robot_IOSignal_srv);
 }
 
 bool RobotComm::SetTrackDist(const double pos_dist, const double ang_dist)
 {
   robot_SetTrackDist_srv.request.pos_dist = pos_dist;
   robot_SetTrackDist_srv.request.ang_dist = ang_dist;
-  return handle_robot_SetTrackDist.call(robot_SetTrackDist_srv);  
+  return handle_robot_SetTrackDist.call(robot_SetTrackDist_srv);
 }
 
 bool RobotComm::Stop()
 {
-  return handle_robot_Stop.call(robot_Stop_srv); 
+  return handle_robot_Stop.call(robot_Stop_srv);
 }
 
 bool RobotComm::IsMoving()
@@ -450,7 +450,7 @@ bool RobotComm::GetTool(double tool[7])
   tool[4] = robot_GetState_srv.response.toolqx;
   tool[5] = robot_GetState_srv.response.toolqy;
   tool[6] = robot_GetState_srv.response.toolqz;
-  return success; 
+  return success;
 }
 
 bool RobotComm::GetInertia(double inertia[7])
@@ -463,7 +463,7 @@ bool RobotComm::GetInertia(double inertia[7])
   inertia[4] = robot_GetState_srv.response.toolix;
   inertia[5] = robot_GetState_srv.response.tooliy;
   inertia[6] = robot_GetState_srv.response.tooliz;
-  return success; 
+  return success;
 }
 
 
@@ -511,7 +511,7 @@ bool RobotComm::GetState(double &tcp, double &ori, int &zone, double workObject[
   inertia[4] = robot_GetState_srv.response.toolix;
   inertia[5] = robot_GetState_srv.response.tooliy;
   inertia[6] = robot_GetState_srv.response.tooliz;
-  return success; 
+  return success;
 }
 
 bool RobotComm::GetCartesian(double cart[7])
@@ -579,8 +579,8 @@ bool RobotComm::GetCartesian(HomogTransf &t)
   }
   return false;
 }
-    
-bool RobotComm::GetCartesian(double &x, double &y, double &z, 
+
+bool RobotComm::GetCartesian(double &x, double &y, double &z,
     double &q0, double &qx, double &qy, double &qz)
 {
   if (handle_robot_GetCartesian.call(robot_GetCartesian_srv))
@@ -598,7 +598,7 @@ bool RobotComm::GetCartesian(double &x, double &y, double &z,
     return false;
 }
 
-bool RobotComm::GetJoints(double &j1, double &j2, double &j3, 
+bool RobotComm::GetJoints(double &j1, double &j2, double &j3,
     double &j4, double &j5, double &j6, double &j7)
 {
   if (handle_robot_GetJoints.call(robot_GetJoints_srv))
@@ -697,9 +697,9 @@ bool RobotComm::GetRobotAngle(double &angle)
 
 bool RobotComm::moveArm(geometry_msgs::Pose pose)
 {
-  RobotComm::SetCartesian(double(pose.position.x), double(pose.position.y), 
+  RobotComm::SetCartesian(double(pose.position.x), double(pose.position.y),
       double(pose.position.z),
-      pose.orientation.w, pose.orientation.x, 
+      pose.orientation.w, pose.orientation.x,
       pose.orientation.y, pose.orientation.z);
   return true;
 }
@@ -723,15 +723,15 @@ bool RobotComm::relativeMoveArm(double x_off, double y_off, double z_off)
   return true;
 }
 
-bool RobotComm::relativeMoveArm(double x_off, double y_off, double z_off, 
+bool RobotComm::relativeMoveArm(double x_off, double y_off, double z_off,
     geometry_msgs::Pose pose)
 {
-  RobotComm::SetCartesian(pose.position.x + x_off, 
-      pose.position.y + y_off, 
-      pose.position.z + z_off, 
-      pose.orientation.w, 
-      pose.orientation.x, 
-      pose.orientation.y, 
+  RobotComm::SetCartesian(pose.position.x + x_off,
+      pose.position.y + y_off,
+      pose.position.z + z_off,
+      pose.orientation.w,
+      pose.orientation.x,
+      pose.orientation.y,
       pose.orientation.z);
 
   return true;
@@ -759,7 +759,7 @@ bool RobotComm::moveReset(void)
   return true;
 }
 
-bool RobotComm::setupRobot(double tcp, double ori, int zone, 
+bool RobotComm::setupRobot(double tcp, double ori, int zone,
     double joints[NUM_JOINTS], geometry_msgs::Pose pose)
 {
   RobotComm::SetSpeed(tcp, ori);
@@ -877,5 +877,3 @@ bool RobotComm::HandGetPressure(double &pressure)
   pressure = robot_HandGetPressure_srv.response.pressure;
   return success;
 }
-
-
