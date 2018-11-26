@@ -34,7 +34,7 @@ namespace ABBInterpreter
   string closeConnection(int idCode=0);
   // Buffers
   // TCP Pose
-  string addBuffer(double x, double y, double z, double q0, double qx, double qy, double qz, double handpose int idCode=0);
+  string addBuffer(double x, double y, double z, double q0, double qx, double qy, double qz, double handpose, int idCode=0);
   string clearBuffer(int idCode=0);
   string executeBuffer(bool simultaneous, bool useHandPose, int idCode=0);
   string lenBuffer(int idCode=0);
