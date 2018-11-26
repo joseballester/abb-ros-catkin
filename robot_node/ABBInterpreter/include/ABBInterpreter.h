@@ -10,7 +10,7 @@ using namespace std;
 
 /** \class namespace
     \brief ABB server interpreter.
-    Collection of methods to format and parse messages between PC and server running in ABB controller.   
+    Collection of methods to format and parse messages between PC and server running in ABB controller.
 */
 namespace ABBInterpreter
 {
@@ -34,14 +34,14 @@ namespace ABBInterpreter
   string closeConnection(int idCode=0);
   // Buffers
   // TCP Pose
-  string addBuffer(double x, double y, double z, double q0, double qx, double qy, double qz, int idCode=0);
+  string addBuffer(double x, double y, double z, double q0, double qx, double qy, double qz, double handpose int idCode=0);
   string clearBuffer(int idCode=0);
-  string executeBuffer(int idCode=0);
+  string executeBuffer(bool simultaneous, bool useHandPose, int idCode=0);
   string lenBuffer(int idCode=0);
   // Joint Configuration
   string addJointPosBuffer(double q1, double q2, double q3, double q4, double q5, double q6, double q7, int idCode=0);
   string clearJointPosBuffer(int idCode=0);
-  string executeJointPosBuffer(int idCode=0);
+  string executeJointPosBuffer(bool simultaneous, int idCode=0);
   // Hand
   string handJogIn(int idCode=0);
   string handJogOut(int idCode=0);
@@ -63,20 +63,20 @@ namespace ABBInterpreter
   string connectRRI(int idCode=0);
   string closeRRI(int idCode=0);
   // CSS
-  string actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz, 
+  string actCSS(int refFrame, double refOrient_q0, double refOrient_qx, double refOrient_qy, double refOrient_qz,
                 int softDir, double stiffness, double stiffnessNonSoftDir, int allowMove, double ramp, int idCode=0);
   string deactCSS(double x, double y, double z, double q0, double qx, double qy, double qz, int idCode=0);
   // EGM
   string actEGM(int idCode=0);
-  
+
   string iosignal(int output_num, int signal, int idCode=0);
-  
+
   int parseCartesian(string msg, double *x, double *y, double *z,
       double *q0, double *qx, double *qy, double *qz);
-  int parseJoints(string msg, double *joint1, double *joint2, 
+  int parseJoints(string msg, double *joint1, double *joint2,
       double *joint3, double *joint4, double *joint5, double *joint6, double *joint7);
   int parseIK(string msg, double *joint1, double *joint2,
       double *joint3, double *joint4, double *joint5, double *joint6, double *joint7, double *errorNum);
-  int parseHandValue(string msg, double *value);  
+  int parseHandValue(string msg, double *value);
 }
 #endif

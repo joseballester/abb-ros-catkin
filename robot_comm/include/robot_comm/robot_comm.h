@@ -92,7 +92,7 @@ typedef struct
   double ori;   // Tool orientation (degrees)
 } zone_vals;
 
-static const zone_vals zone_data[NUM_ZONES] = 
+static const zone_vals zone_data[NUM_ZONES] =
 {
   // p_tcp (mm), p_ori (mm), ori (deg)
   {0.0,   0.0,  0.0},   // ZONE_FINE
@@ -114,11 +114,11 @@ class RobotComm
     void subscribe(ros::NodeHandle* np);
 
     // Subscribe to Topics
-    void subscribeCartesian(ros::NodeHandle* np, int q_len, 
+    void subscribeCartesian(ros::NodeHandle* np, int q_len,
         void (*funcPtr)(const robot_comm::robot_CartesianLogConstPtr&));
-    void subscribeJoints(ros::NodeHandle* np, int q_len, 
+    void subscribeJoints(ros::NodeHandle* np, int q_len,
         void (*funcPtr)(const robot_comm::robot_JointsLogConstPtr&));
-    void subscribeForce(ros::NodeHandle* np, int q_len, 
+    void subscribeForce(ros::NodeHandle* np, int q_len,
         void (*funcPtr)(const robot_comm::robot_ForceLogConstPtr&));
 
     // Call this before program exits so we don't have double freeing issues
@@ -126,29 +126,29 @@ class RobotComm
 
     // User functions
     bool Ping();
-    bool SetCartesian(const double x, const double y, const double z, 
+    bool SetCartesian(const double x, const double y, const double z,
         const double q0, const double qx, const double qy, const double qz);
     bool SetCartesian(const HomogTransf pose);
     bool SetCartesian(const double cart[7]);
     bool SetCartesianJ(const HomogTransf pose);
     bool SetCartesianJ(const double cart[7]);
-    bool SetCartesianJ(const double x, const double y, const double z, 
+    bool SetCartesianJ(const double x, const double y, const double z,
         const double q0, const double qx, const double qy, const double qz);
     bool SetCartesianA(const HomogTransf pose, const double ang);
     bool SetCartesianA(const double cart[8]);
     bool SetCartesianA(const double x, const double y, const double z,
         const double q0, const double qx, const double qy, const double qz, const double ang);
-    bool SetJoints(const double j[NUM_JOINTS]); 
-    bool SetJoints(const double j1, const double j2, const double j3, 
+    bool SetJoints(const double j[NUM_JOINTS]);
+    bool SetJoints(const double j1, const double j2, const double j3,
         const double j4, const double j5, const double j6, const double j7);
-    bool SetWorkObject(const double x, const double y, const double z, 
+    bool SetWorkObject(const double x, const double y, const double z,
         const double q0, const double qx, const double qy, const double qz);
     bool SetZone(const int z);
     bool IOSignal(const int output_num, const int signal);
     bool SetMotionSupervision(double sup);
-    bool SetTool(const double x, const double y, const double z, 
+    bool SetTool(const double x, const double y, const double z,
         const double q0, const double qx, const double qy, const double qz);
-    bool SetInertia(const double m, const double cgx, const double cgy, 
+    bool SetInertia(const double m, const double cgx, const double cgy,
         const double cgz, const double ix, const double iy, const double iz);
     bool SetComm(const int mode);
     bool SetSpeed(const double tcp, const double ori);
@@ -168,18 +168,18 @@ class RobotComm
     bool GetCartesian(double trans[3], double quat[4]);
     bool GetCartesian(Vec &trans, Quaternion &quat);
     bool GetCartesian(HomogTransf &t);
-    bool GetCartesian(double &x, double &y, double &z, 
+    bool GetCartesian(double &x, double &y, double &z,
         double &q0, double &qx, double &qy, double &qz);
-    bool GetJoints(double j[NUM_JOINTS]); 
-    bool GetJoints(double &j1, double &j2, double &j3, 
-        double &j4, double &j5, double &j6, double &j7); 
+    bool GetJoints(double j[NUM_JOINTS]);
+    bool GetJoints(double &j1, double &j2, double &j3,
+        double &j4, double &j5, double &j6, double &j7);
     bool IsMoving();
-    
+
     bool AddJointPosBuffer(double j1, double j2, double j3, double j4, double j5, double j6, double j7);
-    bool ExecuteJointPosBuffer();
+    bool ExecuteJointPosBuffer(bool simultaneous);
     bool ClearJointPosBuffer();
-    bool AddBuffer(double x, double y, double z, double q0, double qx, double qy, double qz);
-    bool ExecuteBuffer();
+    bool AddBuffer(double x, double y, double z, double q0, double qx, double qy, double qz, double handpose);
+    bool ExecuteBuffer(bool simultaneous, bool useHandPose);
     bool ClearBuffer();
 
     bool GetIK(const HomogTransf pose, double robotAngle, double joints[NUM_JOINTS], double &errorNum);
@@ -207,7 +207,7 @@ class RobotComm
     bool moveArm(geometry_msgs::Pose pose);
     bool moveArm(double j[NUM_JOINTS]);
     bool relativeMoveArm(double x_off, double y_off, double z_off);
-    bool relativeMoveArm(double x_off, double y_off, double z_off, 
+    bool relativeMoveArm(double x_off, double y_off, double z_off,
                          geometry_msgs::Pose pose);
     bool invertHand(void);
     bool vibrate(void);
@@ -221,7 +221,7 @@ class RobotComm
 
   private:
     std::string robotname;
-  
+
     // Subscribers
     ros::Subscriber robot_cartesian_sub;
     ros::Subscriber robot_joints_sub;
@@ -252,7 +252,7 @@ class RobotComm
     ros::ServiceClient handle_robot_GetRobotAngle;
     ros::ServiceClient handle_robot_Approach;
     ros::ServiceClient handle_robot_SetMotionSupervision;
-    
+
     ros::ServiceClient handle_robot_HandJogIn;
     ros::ServiceClient handle_robot_HandJogOut;
     ros::ServiceClient handle_robot_HandIsCalibrated;
@@ -276,7 +276,7 @@ class RobotComm
     ros::ServiceClient handle_robot_AddBuffer;
     ros::ServiceClient handle_robot_ExecuteBuffer;
     ros::ServiceClient handle_robot_ClearBuffer;
-    
+
     ros::ServiceClient handle_robot_ActivateEGM;
     ros::ServiceClient handle_robot_IOSignal;
 
@@ -305,7 +305,7 @@ class RobotComm
     robot_comm::robot_GetFK robot_GetFK_srv;
     robot_comm::robot_GetRobotAngle robot_GetRobotAngle_srv;
     robot_comm::robot_Approach robot_Approach_srv;
-    
+
     robot_comm::robot_HandJogIn robot_HandJogIn_srv;
     robot_comm::robot_HandJogOut robot_HandJogOut_srv;
     robot_comm::robot_HandMoveTo robot_HandMoveTo_srv;
@@ -326,15 +326,15 @@ class RobotComm
     robot_comm::robot_AddJointPosBuffer robot_AddJointPosBuffer_srv;
     robot_comm::robot_ExecuteJointPosBuffer robot_ExecuteJointPosBuffer_srv;
     robot_comm::robot_ClearJointPosBuffer robot_ClearJointPosBuffer_srv;
-    
+
     robot_comm::robot_AddBuffer robot_AddBuffer_srv;
     robot_comm::robot_ExecuteBuffer robot_ExecuteBuffer_srv;
     robot_comm::robot_ClearBuffer robot_ClearBuffer_srv;
-    
+
     robot_comm::robot_ActivateEGM robot_ActivateEGM_srv;
-    
+
     robot_comm::robot_IOSignal robot_IOSignal_srv;
-    
+
 };
 
 #endif //ROBOT_COMM_H

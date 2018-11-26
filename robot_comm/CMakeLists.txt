@@ -21,6 +21,7 @@ add_service_files(DIRECTORY srv FILES
     robot_ActivateCSS.srv
     robot_ActivateEGM.srv
     robot_AddBuffer.srv
+    robot_AddSimBuffer.srv
     robot_AddJointPosBuffer.srv
     robot_Approach.srv
     robot_ClearBuffer.srv
@@ -108,4 +109,3 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
 )
-

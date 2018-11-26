@@ -1,6 +1,7 @@
-# Service to Set Joints
-
-
+# Service to execute cartesian pose buffer
+# If simultaneous is true, buffers for both arms have to be the same size
+bool simultaneous
+bool useHandPose
 ---
 int64 ret
 string msg
