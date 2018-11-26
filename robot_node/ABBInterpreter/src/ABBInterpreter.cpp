@@ -288,7 +288,7 @@ string ABBInterpreter::lenBuffer(int idCode)
 string ABBInterpreter::executeBuffer(bool simultaneous, bool useHandPose, int idCode)
 {
   string msg = stringFromInstructionCodeNoEnding(33,idCode);
-  sprintf(buff,"%+08.1lf %+08.1lf ",simultaneous,useHandPose);  msg += buff ;
+  sprintf(buff,"%+08.1lf %.2d ",simultaneous,useHandPose);  msg += buff ;
   return (msg+"#");
 }
 
