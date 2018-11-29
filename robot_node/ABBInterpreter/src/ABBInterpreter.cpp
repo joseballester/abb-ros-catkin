@@ -271,7 +271,7 @@ string ABBInterpreter::addBuffer(double x, double y, double z, double q0, double
   // move will execute at current speed (which you can change between addBuffer calls)
 
   string msg = stringFromInstructionCodeNoEnding(30,idCode);
-  sprintf(buff,"%+08.1lf %+08.1lf %+08.1lf %+08.5lf %+08.5lf %+08.5lf %+08.5lf %+08.5lf ",x,y,z,q0,qx,qy,qz,handpose);  msg += buff ;
+  sprintf(buff,"%+08.1lf %+08.1lf %+08.1lf %+08.5lf %+08.5lf %+08.5lf %+08.5lf %+08.1lf ",x,y,z,q0,qx,qy,qz,handpose);  msg += buff ;
   return (msg+"#");
 }
 
