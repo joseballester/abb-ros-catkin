@@ -52,52 +52,30 @@ void EgmFeedBack_to_JointState(abb::egm::EgmFeedBack *fb, sensor_msgs::JointStat
   js.effort = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 }
 
-abb::egm::EgmSensor* Position_to_EgmSensor(geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick)
+void Position_to_EgmSensor(geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick, abb::egm::EgmSensor* sensor)
 {
-  abb::egm::EgmHeader* header = new abb::egm::EgmHeader();
-  header->set_mtype(abb::egm::EgmHeader_MessageType_MSGTYPE_CORRECTION);
-  header->set_seqno(seqno);
-  header->set_tm(tick);
+  sensor->mutable_header()->set_mtype(abb::egm::EgmHeader_MessageType_MSGTYPE_CORRECTION);
+  sensor->mutable_header()->set_seqno(seqno);
+  sensor->mutable_header()->set_tm(tick);
 
-  abb::egm::EgmCartesian *pc = new abb::egm::EgmCartesian();
-  pc->set_x(pose.position.x);
-  pc->set_y(pose.position.y);
-  pc->set_z(pose.position.z);
-
-  abb::egm::EgmQuaternion *pq = new abb::egm::EgmQuaternion();
-  pq->set_u0(pose.orientation.w);
-  pq->set_u1(pose.orientation.x);
-  pq->set_u2(pose.orientation.y);
-  pq->set_u3(pose.orientation.z);
-
-  abb::egm::EgmPose *pp = new abb::egm::EgmPose();
-  pp->set_allocated_pos(pc);
-  pp->set_allocated_orient(pq);
-
-  abb::egm::EgmPlanned *planned = new abb::egm::EgmPlanned();
-  planned->set_allocated_cartesian(pp);
-
-  abb::egm::EgmSensor* msg = new abb::egm::EgmSensor();
-  msg->set_allocated_header(header);
-  msg->set_allocated_planned(planned);
-  return msg;
+  sensor->clear_planned();
+  sensor->clear_speedref();
+  sensor->mutable_planned()->mutable_cartesian()->mutable_pos()->set_x(pose.position.x);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_pos()->set_y(pose.position.y);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_pos()->set_z(pose.position.z);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_orient()->set_u0(pose.orientation.w);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_orient()->set_u1(pose.orientation.x);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_orient()->set_u2(pose.orientation.y);
+  sensor->mutable_planned()->mutable_cartesian()->mutable_orient()->set_u3(pose.orientation.z);
 }
 
-abb::egm::EgmSensor* Velocity_to_EgmSensor(geometry_msgs::Pose vel, geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick)
+void Velocity_to_EgmSensor(geometry_msgs::Pose vel, geometry_msgs::Pose pose, unsigned int seqno, uint32_t tick, abb::egm::EgmSensor* sensor)
 {
-  abb::egm::EgmCartesianSpeed *cs = new abb::egm::EgmCartesianSpeed();
-  cs->add_value(vel.position.x);
-  cs->add_value(vel.position.y);
-  cs->add_value(vel.position.z);
-  cs->add_value(vel.orientation.x);
-  cs->add_value(vel.orientation.y);
-  cs->add_value(vel.orientation.z);
-
-  abb::egm::EgmSpeedRef *speedref = new abb::egm::EgmSpeedRef();
-  speedref->set_allocated_cartesians(cs);
-
-  // A valid position must be sent too, although it is ignored
-  abb::egm::EgmSensor* msg = Position_to_EgmSensor(pose, seqno, tick);
-  msg->set_allocated_speedref(speedref);
-  return msg;
+  Position_to_EgmSensor(pose, seqno, tick, sensor);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.position.x);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.position.y);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.position.z);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.orientation.x);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.orientation.y);
+  sensor->mutable_speedref()->mutable_cartesians()->add_value(vel.orientation.z);
 }

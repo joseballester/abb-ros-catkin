@@ -7,9 +7,13 @@ RobotHelper::RobotHelper(ros::NodeHandle n, int udpPort)
 {
   sock = new UDPSocket(udpPort);
   sock->setBlocking();
+
+  last_egm_robot = new abb::egm::EgmRobot();
+  last_egm_sensor = new abb::egm::EgmSensor();
   flush_robot_data();
   sock->setTimeout(0, 500000);
   last_sent_ps = last_measured_ps;
+  last_sent_seq = 0;
 }
 
 RobotHelper::~RobotHelper()
@@ -20,7 +24,6 @@ RobotHelper::~RobotHelper()
 void RobotHelper::flush_robot_data()
 {
   messageSize = sock->recvFrom(inBuffer, MAX_ROBOT_BUFFER-1, sourceAddr, sourcePort);
-  last_egm_robot = new abb::egm::EgmRobot();
 
   if (messageSize < 0) {
     // TODO: Should be improved
@@ -47,20 +50,21 @@ geometry_msgs::PoseStamped RobotHelper::send_command(geometry_msgs::PoseStamped 
 {
   new_sent_time = ros::Time::now();
   if (command_mode == "velocity") {
-    if(command_pose.header.seq == 0) {
+    if(command_pose.header.seq == last_sent_seq) {
       target = geometry_msgs::Pose();
     } else {
       target = command_pose.pose;
+      last_sent_seq = command_pose.header.seq;
     }
-    last_egm_sensor = Velocity_to_EgmSensor(target, last_measured_ps.pose, seqno++, get_tick()-start_tick);
+    Velocity_to_EgmSensor(target, last_measured_ps.pose, seqno++, get_tick()-start_tick, last_egm_sensor);
   } else {
-    if (command_pose.header.seq == 0) {
+    if (command_pose.header.seq == last_sent_seq) {
       target = last_sent_ps.pose;
     } else {
       target = command_pose.pose;
+      last_sent_seq = command_pose.header.seq;
     }
-
-    last_egm_sensor = Position_to_EgmSensor(target, seqno++, get_tick()-start_tick);
+    Position_to_EgmSensor(target, seqno++, get_tick()-start_tick, last_egm_sensor);
   }
   Pose_to_PoseStamped(target, new_sent_time, last_sent_ps);
   last_egm_sensor->SerializeToString(&outBuffer);

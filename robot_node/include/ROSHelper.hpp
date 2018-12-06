@@ -19,22 +19,18 @@ public:
 
   geometry_msgs::PoseStamped get_command_pose();
 
-  void publish_joint_state(const sensor_msgs::JointState joints);
+  void publish_joint_state(const sensor_msgs::JointState& joints);
 
-  void publish_measured_pose(const geometry_msgs::PoseStamped pose);
+  void publish_measured_pose(const geometry_msgs::PoseStamped& pose);
 
-  void publish_sent_pose(const geometry_msgs::PoseStamped pose);
-
-  int get_max_queued();
+  void publish_sent_pose(const geometry_msgs::PoseStamped& pose);
 
 private:
   ros::Subscriber command_pose_sub;
   ros::Publisher joint_state_pub;
   ros::Publisher measured_pose_pub;
   ros::Publisher sent_pose_pub;
-  std::vector<geometry_msgs::PoseStamped> command_poses;
-  geometry_msgs::PoseStamped last_command_ps;
-  int max_queued;
+  geometry_msgs::PoseStamped command_pose;
 };
 
 #endif

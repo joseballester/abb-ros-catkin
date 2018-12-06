@@ -41,6 +41,7 @@ private:
   limits x_limits;
   limits y_limits;
   limits z_limits;
+  int last_sent_seq;
 
   geometry_msgs::PoseStamped last_measured_ps;
   sensor_msgs::JointState last_measured_js;
