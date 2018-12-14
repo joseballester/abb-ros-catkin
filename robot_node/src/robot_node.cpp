@@ -11,6 +11,11 @@
 #include "robot_node.h"
 #include "egm.pb.h"
 
+// EGM mode global variables
+std::condition_variable egmCV;
+std::mutex egmMutex;
+bool egm_running;
+std::string egm_mode;
 
 /////////////////////////////////
 // BEGIN RobotController Class //
@@ -118,12 +123,8 @@ bool RobotController::init(std::string id)
     }
   }
 
-
   // Setup EGM mode variable
   egm_running = false;
-
-  pthread_attr_init(&attrE);
-  pthread_attr_setdetachstate(&attrE, PTHREAD_CREATE_JOINABLE);
 
   // Setup our non-blocking variables
   non_blocking = false;
@@ -164,14 +165,6 @@ bool RobotController::init(std::string id)
   }
 
   return true;
-}
-
-void RobotController::setEgmRunning(bool val) {
-  egm_running = val;
-}
-
-bool RobotController::getEgmRunning() {
-  return egm_running;
 }
 
 // This function initializes the default configuration of the robot.
@@ -1164,54 +1157,55 @@ SERVICE_CALLBACK_DEF(DeactivateCSS)
 //////////////////////////////////////////////////////////////////////////////
 void *egmMain(void *args)
 {
-  pair<RobotController*, std::string> *p = (pair<RobotController*, std::string>*) args;
-  // Recover the pointer to the main node
-  RobotController* ABBrobot = p->first;
-  std::string egm_mode = p->second;
-
+  RobotController* ABBrobot = (RobotController*) args;
   double hz = 250.0;
 
-  ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
-  // ABBrobot->node->param<int>(robotname_sl + "/egmSpeedTimeout", egmSpeedTimeout, 1000);
-
-  ROSHelper ros_helper = ROSHelper(*ABBrobot->node, ABBrobot->robotname_sl);
-  RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510);
-
   ros::Rate rate(hz);
-
   geometry_msgs::PoseStamped command_pose, sent_pose, measured_pose;
   sensor_msgs::JointState joint_state;
   abb::egm::EgmFeedBack feedback;
 
-  ROS_INFO("ROBOT_CONTROLLER: EGM controller started.");
+  ROSHelper ros_helper = ROSHelper(*ABBrobot->node, ABBrobot->robotname_sl);
+  RobotHelper robot_controller = RobotHelper(*ABBrobot->node, 6510);
 
-  while (ros::ok() && ABBrobot->getEgmRunning())
-  {
-    ros::spinOnce();
-    command_pose = ros_helper.get_command_pose();
-    sent_pose = robot_controller.send_command(command_pose, egm_mode, hz);
-    ros_helper.publish_sent_pose(sent_pose);
+  while(ros::ok()) {
+    // Wait for signal
+    std::unique_lock<std::mutex> lk(egmMutex);
+    egmCV.wait(lk, []{return egm_running;});
 
-    try {
-      robot_controller.flush_robot_data();
-      robot_controller.get_measured_pose(measured_pose);
-      robot_controller.get_measured_js(joint_state);
-      ros_helper.publish_measured_pose(measured_pose);
-      ros_helper.publish_joint_state(joint_state);
+    ROS_INFO("ROBOT_CONTROLLER: Starting EGM controller...");
+    robot_controller.connect(egm_mode);
+
+    ROS_INFO("ROBOT_CONTROLLER: EGM controller started (%s mode).", egm_mode.c_str());
+
+    while (ros::ok() && egm_running)
+    {
+      ros::spinOnce();
+      command_pose = ros_helper.get_command_pose();
+      sent_pose = robot_controller.send_command(command_pose, egm_mode);
+      ros_helper.publish_sent_pose(sent_pose);
+
+      try {
+        robot_controller.flush_robot_data();
+        robot_controller.get_measured_pose(measured_pose);
+        robot_controller.get_measured_js(joint_state);
+        ros_helper.publish_measured_pose(measured_pose);
+        ros_helper.publish_joint_state(joint_state);
+      }
+      catch (SocketException& e) {
+        // EGM is terminated by RAPID (timeout)
+        ROS_INFO("ROBOT_CONTROLLER: EGM terminated by timeout. %s", e.what());
+        break;
+      }
+
+      rate.sleep();
     }
-    catch (SocketException& e) {
-      // EGM is terminated by RAPID (timeout)
-      ROS_INFO("ROBOT_CONTROLLER: EGM terminated by timeout.");
-      break;
+    if(!egm_running) {
+      ROS_INFO("ROBOT_CONTROLLER: EGM terminated by user.");
     }
-
-    rate.sleep();
+    robot_controller.disconnect();
+    egm_running = false;
   }
-  if(!ABBrobot->getEgmRunning()) {
-    ROS_INFO("ROBOT_CONTROLLER: EGM terminated by user.");
-  }
-  ABBrobot->setEgmRunning(false);
-
   pthread_exit((void*) 0);
 }
 
@@ -1227,18 +1221,13 @@ SERVICE_CALLBACK_DEF(ActivateEGM)
   // If we are in non-blocking mode, stop movement
   if (non_blocking && do_nb_move) stop_nb();
 
-  std::string egm_mode = (req.mode ? "velocity" : "position");
-
-  pair<RobotController*, std::string> p = pair<RobotController*, std::string>(this, egm_mode);
-
-  if (pthread_create(&egmThread, &attrE, egmMain, (void *) &p) != 0)
+  // Set signal to resume activity of EGM thread
   {
-    res.ret = 0;
-    res.msg = "ROBOT_CONTROLLER: Unable to create EGM thread.";
-    return false;
+    std::lock_guard<std::mutex> lk(egmMutex);
+    egm_mode = (req.mode ? "velocity" : "position");
+    egm_running = true;
   }
-
-  egm_running = true;
+  egmCV.notify_one();
 
   return RUN_AND_RETURN_RESULT(actEGM(req), res.ret, res.msg, "Not able to activate EGM");
 }
@@ -1253,8 +1242,6 @@ SERVICE_CALLBACK_DEF(StopEGM)
   }
 
   egm_running = false;
-  void *statusE;
-  pthread_join(egmThread, &statusE);
 
   res.ret = 1;
   res.msg = "ROBOT_CONTROLLER: OK.";
@@ -2655,6 +2642,18 @@ int main(int argc, char** argv)
     ROS_INFO("ROBOT_CONTROLLER: Unable to create rri thread. "
         "Error number: %d.",errno);
     }
+  }
+
+  // Create a dedicated thread for EGM
+  pthread_t egmThread;
+  pthread_attr_t attrE;
+  pthread_attr_init(&attrE);
+  pthread_attr_setdetachstate(&attrE, PTHREAD_CREATE_JOINABLE);
+
+  if (pthread_create(&egmThread, &attrE, egmMain, (void*)&ABBrobot) != 0)
+  {
+    ROS_INFO("ROBOT_CONTROLLER: Unable to create EGM thread. "
+        "Error number: %d.",errno);
   }
 
   // Create a dedicated thread for non-blocking moves

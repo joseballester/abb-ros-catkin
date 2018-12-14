@@ -305,6 +305,8 @@ UDPSocket::UDPSocket() throw(SocketException) : CommunicatingSocket(SOCK_DGRAM,
 UDPSocket::UDPSocket(unsigned short localPort)  throw(SocketException) :
     CommunicatingSocket(SOCK_DGRAM, IPPROTO_UDP) {
   setLocalPort(localPort);
+  int vtrue = 1;
+  setsockopt(sockDesc, SOL_SOCKET, SO_REUSEADDR, &vtrue, sizeof(int));
   setBroadcast();
 }
 

@@ -20,12 +20,14 @@ public:
   RobotHelper(ros::NodeHandle n, int udpPort);
   ~RobotHelper();
 
+  void connect(std::string command_mode);
+  void disconnect();
   void flush_robot_data();
   void get_measured_pose(geometry_msgs::PoseStamped& posestamped);
   void get_measured_js(sensor_msgs::JointState& js);
 
   abb::egm::EgmFeedBack get_robot_feedback();
-  geometry_msgs::PoseStamped send_command(geometry_msgs::PoseStamped command_pose, std::string command_mode, double hz);
+  geometry_msgs::PoseStamped send_command(geometry_msgs::PoseStamped command_pose, std::string command_mode);
 
 private:
   unsigned int seqno;
@@ -42,6 +44,7 @@ private:
   limits y_limits;
   limits z_limits;
   int last_sent_seq;
+  bool egm_first;
 
   geometry_msgs::PoseStamped last_measured_ps;
   sensor_msgs::JointState last_measured_js;

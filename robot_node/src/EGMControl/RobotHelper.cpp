@@ -3,22 +3,33 @@
 #include "egm.pb.h"
 
 RobotHelper::RobotHelper(ros::NodeHandle n, int udpPort)
-  : seqno(0), start_tick(get_tick()), udpPort(udpPort)
+  : seqno(0), start_tick(get_tick()), udpPort(udpPort), egm_first(true)
 {
   sock = new UDPSocket(udpPort);
   sock->setBlocking();
-
   last_egm_robot = new abb::egm::EgmRobot();
   last_egm_sensor = new abb::egm::EgmSensor();
-  flush_robot_data();
-  sock->setTimeout(0, 500000);
-  last_sent_ps = last_measured_ps;
-  last_sent_seq = 0;
 }
 
 RobotHelper::~RobotHelper()
 {
   delete sock;
+}
+
+void RobotHelper::connect(std::string command_mode)
+{
+  sock->setBlocking();
+  last_measured_ps = geometry_msgs::PoseStamped();
+  if(!egm_first) send_command(last_measured_ps, command_mode);
+  egm_first = false;
+  flush_robot_data();
+  last_sent_ps = last_measured_ps;
+  last_sent_seq = 0;
+  sock->setTimeout(2, 500000);
+}
+
+void RobotHelper::disconnect() {
+  sock->setBlocking();
 }
 
 void RobotHelper::flush_robot_data()
@@ -46,7 +57,7 @@ void RobotHelper::get_measured_js(sensor_msgs::JointState& js)
   js = last_measured_js;
 }
 
-geometry_msgs::PoseStamped RobotHelper::send_command(geometry_msgs::PoseStamped command_pose, std::string command_mode, double hz)
+geometry_msgs::PoseStamped RobotHelper::send_command(geometry_msgs::PoseStamped command_pose, std::string command_mode)
 {
   new_sent_time = ros::Time::now();
   if (command_mode == "velocity") {

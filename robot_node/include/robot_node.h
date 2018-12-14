@@ -18,6 +18,8 @@
 #include "ROSHelper.hpp"
 #include "RobotHelper.hpp"
 #include "EGMHelper.hpp"
+#include <mutex>
+#include <condition_variable>
 
 #include "PracticalSocket.h" // For UDPSocket and SocketException
 #include "tinyxml.h"
@@ -75,8 +77,6 @@ class RobotController
 
   // Initialize the robot
   bool init(std::string id = "");
-  void setEgmRunning(bool val);
-  bool getEgmRunning();
   string robotname;
   string robotname_sl;
 
@@ -134,11 +134,6 @@ class RobotController
 
   // Public access to the ROS node
   ros::NodeHandle *node;
-
-  // EGM mode variable
-  bool egm_running;
-  pthread_t egmThread;
-  pthread_attr_t attrE;
 
   // Non-Blocking move variables
   bool non_blocking;  // Whether we are in non-blocking mode
