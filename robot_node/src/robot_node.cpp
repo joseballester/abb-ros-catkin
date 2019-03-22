@@ -2179,7 +2179,7 @@ void RobotController::logCallback(const ros::TimerEvent&)
                 &msgJoints.j5,
                 &msgJoints.j6,
                 &msgJoints.j7);
-            if (nParams == 9)
+            if (nParams == 10)
             {
               // If we read in the correct number of parameters, save this message
               msgJoints.date.assign(date);
